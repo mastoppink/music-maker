@@ -67,6 +67,7 @@ Cara kerja dengan pengguna: pengguna tidak membaca not dan tidak menilai nada. S
 - Melodi gitar di fret rendah, senar atas. Dulu terdengar "seperti orang belajar main gitar".
 - Karakter gitar tetap satu: melodi memakai lapisan yang sama dengan iringan, ditambah nada jempol, dan senar bawah tidak dilepas saat bass masuk. Dulu "tidak nyambung karakter suaranya".
 
+- Lo-fi: tiga contoh pertama dinilai "semua bagus". Efek diperhalus menang uji buta di kedua lagu (Belajar, Kopi pagi), dengan volume disamakan.
 - Gema ruangan dan kiri-kanan: uji buta dengan volume disamakan. Pengguna memilih versi baru di kedua lagu (Kit dan Klasik).
 
 ### Yang ditolak lewat dengar
@@ -77,7 +78,6 @@ Cara kerja dengan pengguna: pengguna tidak membaca not dan tidak menilai nada. S
 
 ## Menunggu dengar
 
-- Lo-fi: ketiga contoh pertama dinilai "semua bagus". Uji buta efek diperhalus (volume disamakan −18,5 LUFS): Lagu 1 (Belajar) A = halus, Lagu 2 (Kopi pagi) B = halus.
 - Variasi lagu panjang: pengguna mendengar ulang sampai akhir; versi bervariasi (1 A / 2 B) punya variasi di akhir. Semua variasi menyala (bisa dimatikan per jenis lewat `song.vary`).
 
 ## Berikutnya (urut prioritas)
