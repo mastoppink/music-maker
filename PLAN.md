@@ -52,15 +52,13 @@ Cara kerja dengan pengguna: pengguna tidak membaca not dan tidak menilai nada. S
 - Melodi gitar di fret rendah, senar atas. Dulu terdengar "seperti orang belajar main gitar".
 - Karakter gitar tetap satu: melodi memakai lapisan yang sama dengan iringan, ditambah nada jempol, dan senar bawah tidak dilepas saat bass masuk. Dulu "tidak nyambung karakter suaranya".
 
+- Gema ruangan dan kiri-kanan: uji buta dengan volume disamakan. Pengguna memilih versi baru di kedua lagu (Kit dan Klasik).
+
 ### Yang ditolak lewat dengar
 
 - Nada antar bass, dan bass yang masuk di ketukan pertama, pada etude piano lama.
 - Melodi yang disusun otomatis dengan aturan. Diganti kit tulis tangan.
 - Pemilihan 12 kit lewat A/B: semuanya terdengar mirip karena hanya melodi yang berbeda. Diganti gaya lagu.
-
-## Menunggu dengar
-
-- Uji buta gema ruangan dan kiri-kanan (volume disamakan di −20,3 LUFS). Lagu 1: A = baru. Lagu 2: B = baru.
 
 ## Berikutnya (urut prioritas)
 
