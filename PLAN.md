@@ -15,6 +15,10 @@ Cara kerja dengan pengguna: pengguna tidak membaca not dan tidak menilai nada. S
 - **Video**: YouTube butuh file video, minimal gambar diam ditambah audio.
 - **Kebijakan monetisasi YouTube**: konten yang diproduksi massal atau berulang bisa ditolak untuk monetisasi ("inauthentic/repetitive content"). Setiap lagu harus cukup berbeda, dan video perlu sentuhan pribadi (judul, gambar, susunan). Aturan persisnya perlu dicek lagi menjelang unggah, karena YouTube sering mengubahnya.
 
+## Cara kerja dengan repositori
+
+- Setiap perubahan langsung di-commit dan di-push ke **`main`** (atas permintaan pengguna), dan juga ke branch kerja `main-a2tg5r`.
+
 ## Keadaan sekarang (2026-11-26)
 
 - **Mood dan genre**:
