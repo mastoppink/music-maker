@@ -64,7 +64,7 @@ Cara kerja dengan pengguna: pengguna tidak membaca not dan tidak menilai nada. S
 - **Solo piano jazz**: di lagu Jazz panjang, bagian C/Cv menjadi `solo`/`solo2` di atas akor melodi utama; piano selalu yang solo. `improvise` membuat garis per birama: pola irama (seperdelapan rapat, nada lebih panjang, sinkop, jeda di awal), nada di/ melewati ketukan kuat selalu nada akor, nada antara melangkah atau melompat ke nada akor, berbalik di tepi rentang (derajat 2–11), birama ke-4 frasa diakhiri nada panjang dan jeda; seed terpisah (`soloRandom`). Analisis 5.184 nada: 0 salah, 70% melangkah, 20% lompatan kecil, 10% ulang nada. Uji buta (Kafe malam seed 44, 3 menit, solo di 1:00–1:24): pengguna memilih versi dengan solo.
 - **Melodi tambahan** (supaya rangkaian panjang jarang mengulang): 8 kit mayor (Sungai, Gembala, Layang, Teras, Lentera; Bukit, Ombak, Gerbang) dan 6 kit minor (Kabut Pagi, Jendela, Sunyi, Daun Gugur; Malam Sepi, Hujan Malam), masing-masing dengan karakter sendiri. Kini 20 mayor, 12 minor, 8 jazz. Diperiksa kemiripan dengan kit lama (bagian nada [birama, ketukan, derajat] yang sama): tertinggi 36%, batas 40%; tiga draf yang melewati batas ditulis ulang. Uji: 180 lagu non-jazz, 126.095 nada iringan, 0 di luar akor; semua kit terpakai.
   - Efek samping: seed yang sama bisa memilih melodi lain dibanding sebelumnya (proyek lama berubah). Mulai sekarang proyek menyimpan `melodi_kit` (nama melodi), sehingga tidak berubah lagi saat kit ditambah. `--dari` meneruskan nama itu; versi tambahan dan rangkaian memilih melodinya sendiri.
-- Pengguna: drum (perbaikan) oke; Pop dan Melankolis "lumayan"; sampul dan deskripsi video dibuat sendiri oleh pengguna (dicoret dari rencana).
+- Pengguna: String "lumayan" (tetap pilihan, tidak dicentang secara bawaan); drum (perbaikan) oke; Pop dan Melankolis "lumayan"; sampul dan deskripsi video dibuat sendiri oleh pengguna (dicoret dari rencana).
 - **Rangkaian** (CLI `rangkaian`): lagu berseed berurutan, di-master satu per satu, disambung dengan tumpang-tindih `--jeda` (bawaan 2 detik), ditulis langsung ke disk. Juga menyimpan daftar bab YouTube (.txt) dan .json. Hanya diuji singkat (1 menit); pengguna minta rangkaian 60 menit tidak dicoba dulu.
 - **Mix dan mastering**:
   - Gema ruangan buatan (`roomImpulse`, sekitar 2 detik, ber-seed sehingga hasilnya selalu sama), dikirim per instrumen (`placement.room`).
@@ -100,5 +100,5 @@ Cara kerja dengan pengguna: pengguna tidak membaca not dan tidak menilai nada. S
 ## Berikutnya (urut prioritas)
 
 1. **Dengar melodi baru** (sembilan contoh) dan buang/ganti yang tidak enak.
-2. Lanjut optimasi suara sesuai pilihan pengguna. Penilaian String (dengan/tanpa) masih tertunda.
+2. Lanjut optimasi suara: arah "seperti hasil studio rekaman" (lihat usulan di percakapan: EQ dan kompresi per instrumen, dinamika per frasa, gema ruangan yang lebih nyata).
 3. **Coba rangkaian 60 menit** di komputer pengguna setelah optimasi suara selesai.
