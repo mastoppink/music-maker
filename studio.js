@@ -557,12 +557,14 @@ el('settings').onsubmit=async e=>{
     await Promise.all(names.map(loadBank));
     if(song) halt();
     const genre=el('genre').value, mood=el('mood').value, source=el('source').value;
+    // Both melody styles were liked for different reasons, so the listener picks per song.
+    const pianoMelody=el('melody').value==='piano';
     const seed=Math.floor(Math.random()*1e9);
     el('message').textContent='Menyiapkan versi A dan B…';
     // Two versions with neighbouring seeds; the listener simply keeps the one they like.
     versions=[];
     for (const s of [seed,seed+1]) {
-      newSong({genre,mood,duration:Number(el('duration').value),names,seed:s,source});
+      newSong({genre,mood,duration:Number(el('duration').value),names,seed:s,source,pianoMelody});
       song.masterGain=mixGain(await renderMix(false));
       versions.push(song);
     }
