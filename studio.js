@@ -47,6 +47,7 @@ const minorGrips = {
 };
 const gripTable = () => song.genre === 'Akustik'
   ? (song.minor ? acousticMinorGrips : acousticGrips)
+  : song.genre === 'Bossa' ? (song.minor ? bossaMinorGrips : bossaGrips)
   : song.minor ? minorGrips : grips;
 const capoAt = bar => keyAt(bar) - (song.minor ? 57 : 60);
 const grips = {
@@ -61,6 +62,11 @@ const grips = {
 // (Cadd9, Am7; minor key: Am7 for i). The added note is a chord extension, never a clash.
 const acousticGrips = { ...grips, 0:{A:3,D:2,G:0,B:3,HighE:0}, 5:{A:0,D:2,G:0,B:1,HighE:0} };
 const acousticMinorGrips = { ...minorGrips, 0:{A:0,D:2,G:0,B:1,HighE:0} };
+// Bossa: seventh-chord shapes throughout (Cmaj7, Dm7, Fmaj7, G7, Am7; minor: Am7, Dm7, Em7, Fmaj7).
+const bossaGrips = { 0:{A:3,D:2,G:0,B:0,HighE:0}, 1:{D:0,G:2,B:1,HighE:1}, 3:{D:3,G:2,B:1,HighE:0},
+  4:{LowE:3,A:2,D:0,G:0,B:0,HighE:1}, 5:{A:0,D:2,G:0,B:1,HighE:0} };
+const bossaMinorGrips = { 0:{A:0,D:2,G:0,B:1,HighE:0}, 3:{D:0,G:2,B:1,HighE:1},
+  4:{LowE:0,A:2,D:0,G:0,B:0,HighE:0}, 5:{D:3,G:2,B:1,HighE:0} };
 // ---- Akustik · Tenang: compose one song first, then hand roles to instruments ----
 // Seeded random source so the same seed always gives the same song.
 function rng(seed) {
@@ -336,6 +342,10 @@ const styles = [
   { name:'Kafe malam', genre:'Jazz',    mood:'Tenang', weight:2, feel:'asli',    bpm:[76,86],   guitar:'petik', piano:'jazz', drum:'jazz', bass:'jalan' },
   { name:'Swing',      genre:'Jazz',    mood:'Ceria',  weight:1, feel:'asli',    bpm:[110,122], guitar:'petik', piano:'jazz', drum:'jazz', bass:'jalan' },
   { name:'Biru',       genre:'Jazz',    mood:'Melankolis', weight:1, feel:'panjang', bpm:[66,74], guitar:'petik', piano:'jazz', drum:'jazz', bass:'jalan' },
+  // Bossa nova: nylon guitar pattern, straight eighths, cross-stick clave, jazz harmony and tunes.
+  { name:'Pantai Senja', genre:'Bossa', mood:'Tenang', weight:2, feel:'asli', bpm:[100,112], guitar:'bossa', piano:'jazz', drum:'bossa', bass:'bossa' },
+  { name:'Pesisir',      genre:'Bossa', mood:'Ceria',  weight:1, feel:'asli', bpm:[118,130], guitar:'bossa', piano:'jazz', drum:'bossa', bass:'bossa' },
+  { name:'Saudade',      genre:'Bossa', mood:'Melankolis', weight:1, feel:'panjang', bpm:[96,106], guitar:'bossa', piano:'jazz', drum:'bossa', bass:'bossa' },
   // Melankolis: minor kits, slower, softer.
   { name:'Sendu',      genre:'Akustik', mood:'Melankolis', weight:2, feel:'panjang', bpm:[60,66], guitar:'petik', piano:'blok',  drum:'tipis' },
   { name:'Kenangan',   genre:'Akustik', mood:'Melankolis', weight:1, feel:'asli',    bpm:[68,74], guitar:'petik', piano:'pecah', drum:'lembut' },
@@ -434,7 +444,9 @@ function planSong(bars) {
   const solo = kits.find(k => k.name === song.onlyKit);
   // Minor (Melankolis) songs draw from the minor kits, the others from the major ones.
   // Jazz songs draw from the jazz kits (syncopated, with rests), the others from the rest.
-  const pool = kits.filter(k => !!k.minor === !!song.minor && !!k.jazz === (song.genre === 'Jazz'));
+  // Bossa shares the jazz tunes (syncopated, with breaths), played with straight eighths.
+  const jazzTunes = song.genre === 'Jazz' || song.genre === 'Bossa';
+  const pool = kits.filter(k => !!k.minor === !!song.minor && !!k.jazz === jazzTunes);
   let main = solo ?? choose(pool.filter(k => k.kind === 'a'));
   let middle = solo ?? choose(pool.filter(k => k.kind === 'b'));
   // Second tunes for long songs (picked after the first two so short songs stay the same).
@@ -499,7 +511,7 @@ function planSong(bars) {
   }
   // Jazz (major keys): IV before V becomes ii7, giving the ii-V-I that defines jazz harmony.
   // Every melody note over IV (fa, la, do) is also a note of ii7 (re, fa, la, do).
-  if (song.genre === 'Jazz' && !song.minor)
+  if ((song.genre === 'Jazz' || song.genre === 'Bossa') && !song.minor)
     harmony.forEach((h, i) => { if (h.root === 3 && harmony[i + 1]?.root === 4) { h.root = 1; h.two = true; } });
   return { harmony, melody, kitNames: used };
 }
@@ -564,13 +576,13 @@ function roles(bar) {
 // Pattern choices per instrument, shown in each track row. "Buat ulang" steps
 // through the variations of the chosen pattern (variant number).
 const partOptions = {
-  Gitar: { petik:'Petik', genjreng:'Genjreng' },
+  Gitar: { petik:'Petik', genjreng:'Genjreng', bossa:'Bossa' },
   Piano: { blok:'Akor', pecah:'Akor dipecah', jazz:'Akor jazz', pulsa:'Akor berdenyut' },
-  Bass:  { tahan:'Panjang', dua:'Dua nada', delapan:'Berdenyut', jalan:'Berjalan (jazz)' },
-  Drum:  { lembut:'Lembut', tipis:'Tipis', jalan:'Berjalan', lofi:'Lo-fi', pop:'Pop', balada:'Balada', jazz:'Jazz (hi-hat)' },
+  Bass:  { tahan:'Panjang', dua:'Dua nada', delapan:'Berdenyut', jalan:'Berjalan (jazz)', bossa:'Bossa' },
+  Drum:  { lembut:'Lembut', tipis:'Tipis', jalan:'Berjalan', lofi:'Lo-fi', pop:'Pop', balada:'Balada', jazz:'Jazz (hi-hat)', bossa:'Bossa' },
   String: { panjang:'Akor panjang', tinggi:'Nada tinggi' }
 };
-const variationCount = { Gitar:{ petik:3, genjreng:2 }, Piano:{ blok:3, pecah:3, jazz:2, pulsa:2 }, Bass:{ tahan:2, dua:2, delapan:2, jalan:2 }, Drum:{ lembut:2, tipis:2, jalan:2, lofi:2, pop:2, balada:2, jazz:2 }, String:{ panjang:2, tinggi:1 } };
+const variationCount = { Gitar:{ petik:3, genjreng:2, bossa:2 }, Piano:{ blok:3, pecah:3, jazz:2, pulsa:2 }, Bass:{ tahan:2, dua:2, delapan:2, jalan:2, bossa:1 }, Drum:{ lembut:2, tipis:2, jalan:2, lofi:2, pop:2, balada:2, jazz:2, bossa:2 }, String:{ panjang:2, tinggi:1 } };
 
 function fingerpick(events, bar, root, final, lift, quiet, turn, noBass, v = 0) {
   const grip = gripTable()[root];
@@ -612,6 +624,22 @@ function fingerpick(events, bar, root, final, lift, quiet, turn, noBass, v = 0) 
     pluck(turn === 0 ? 5 : 6, quiet ? 'G' : 'HighE', quiet ? .43 : .60, .022);
     if (!quiet) pluck(7, 'B', .46, .012);
   }
+}
+
+// Bossa nova guitar: the thumb plays bass on beats one and three (low string, then the next
+// one up), the fingers pluck the upper three strings together in the syncopated two-bar
+// bossa pattern (variation 2: the same figure every bar).
+function bossaGuitar(events, bar, root, final, noBass, v = 0) {
+  const grip = gripTable()[root], capo = capoAt(bar), strings = Object.keys(grip);
+  const pluck = (step, string, level, delay = 0) => events.push({ step: bar * 8 + step, string,
+    note: tuning[string] + grip[string] + capo, level: level * (.95 + .08 * rand()), delay: delay + .004 * rand(), len: 2 });
+  const thumb = noBass ? .42 : .5;
+  const fingers = ['G', 'B', 'HighE'].filter(s => s in grip);
+  pluck(0, strings[0], thumb);
+  if (final) { fingers.forEach((s, i) => pluck(0, s, .42, .035 * (i + 1))); return; }
+  pluck(4, strings[1], thumb * .92);
+  const hits = v === 0 ? (bar % 2 === 0 ? [0, 3, 6] : [2, 5]) : [0, 3, 5];
+  for (const st of hits) fingers.forEach((s, i) => pluck(st, s, .4 * (st === 0 ? 1 : .9), .006 * i));
 }
 
 // Soft strummed guitar: whole chord, down strokes low to high, light up strokes on top.
@@ -698,7 +726,7 @@ function arrange(name, variant = 0) {
         // In Jazz: rootless voicings with the ninth (3-5-7-9), a 6/9 chord to finish, and in
         // variation 2 the chord is pushed half a beat early, on the "and" of four.
         const soft = role.melody === 'Piano' ? .8 : 1;
-        const jazzy = song.genre === 'Jazz';
+        const jazzy = song.genre === 'Jazz' || song.genre === 'Bossa';
         // The ninth is left off v in minor keys (it would be a flat ninth).
         const ninth = !(song.minor && root === 4);
         const notes = jazzy && final ? (song.minor ? [2, 4, 6, 8] : [2, 4, 5, 8])
@@ -738,10 +766,10 @@ function arrange(name, variant = 0) {
       // While the guitar carries the tune, the piano accompaniment was 12-17 dB under it
       // (against 11 dB the other way round), so the guitar seemed to play alone. Lift it.
       // A blind test preferred this in Jazz but not in Akustik, so it applies to Jazz only.
-      if (role.melody === 'Gitar' && song.genre === 'Jazz') for (let i = first; i < events.length; i++) events[i].boost = pianoUnderGuitar;
+      if (role.melody === 'Gitar' && (song.genre === 'Jazz' || song.genre === 'Bossa')) for (let i = first; i < events.length; i++) events[i].boost = pianoUnderGuitar;
     } else if (name === 'Gitar') {
       if (role.melody === 'Gitar') {
-        playMelody(0, .5, song.genre === 'Jazz' ? gitarMelodyBoostJazz : gitarMelodyBoost);
+        playMelody(0, .5, song.genre === 'Jazz' || song.genre === 'Bossa' ? gitarMelodyBoostJazz : gitarMelodyBoost);
         if (role.chords !== 'Gitar') {
           // Thumb notes under the tune, as a fingerstyle player would, so the guitar
           // does not turn into a bare single-note instrument.
@@ -755,6 +783,7 @@ function arrange(name, variant = 0) {
       if (role.chords === 'Gitar') {
         const quiet = role.melody !== 'Gitar' || alone;
         if (part === 'genjreng') strum(events, bar, root, final, role.bass, v);
+        else if (part === 'bossa') bossaGuitar(events, bar, root, final, role.bass, v);
         else fingerpick(events, bar, root, final, lift, quiet, turn, role.bass, v);
       }
     } else if (name === 'String' && role.strings) {
@@ -775,6 +804,10 @@ function arrange(name, variant = 0) {
           : [[root - 7, .16], [root - 5, .14], [root - 3, .14], ...(energy === 2 ? [[root + 9, .1]] : [])];
         for (const [x, level] of voices) add(0, pitch(x), len, level * swell, .02);
       }
+    } else if (name === 'Bass' && role.bass && part === 'bossa' && !final) {
+      // Bossa bass: root on beat one, fifth on beat three, following the guitarist's thumb.
+      add(0, pitch(root) - 24, 3.6, .32, .01);
+      add(4, pitch(root + 4) - 24, 3.6, .29, .01);
     } else if (name === 'Bass' && role.bass && part === 'jalan' && !final) {
       // Walking bass: four quarter notes, chord tones on beats 1 to 3, then a step that
       // leads into the next bar's root (from below, or from above in variation 2).
@@ -798,6 +831,17 @@ function arrange(name, variant = 0) {
       if (two) add(4, pitch(root + 4) - 24, v === 1 ? 1.8 : 3.6, .29, .01);
       // Variation: a short octave note leading into the next bar.
       if (v === 1 && !final) add(6, pitch(root) - 12, 1.6, .26, .01);
+    } else if (name === 'Drum' && role.drums && part === 'bossa') {
+      // Bossa: cross-stick on the two-bar bossa clave, soft shaker eighths, and a light kick
+      // on one and three with pick-ups just before.
+      // Levels kept about 2.5 dB under the other genres: bossa drums stay in the background.
+      const soft = .56;
+      add(0, 'kick', .6, (final ? .26 : .3) * soft);
+      if (final) continue;
+      add(3, 'kick', .45, .18 * soft); add(4, 'kick', .55, .26 * soft); add(7, 'kick', .45, .18 * soft);
+      const clave = v === 0 ? (bar % 2 === 0 ? [0, 3, 6] : [2, 5]) : [0, 3, 6];
+      if (!cadence) for (const st of clave) add(st, 'rim', .3, .12 * soft);
+      for (let st = 0; st < 8; st++) add(st, 'hat', .18, (st % 2 ? .06 : .08) * soft);
     } else if (name === 'Drum' && role.drums && part === 'jazz') {
       // Swing time on a drum-kit hi-hat played with a stick: a washy half-open hit on one
       // and three, a tight accent on two and four, soft taps on the swung off-beats.

@@ -31,12 +31,12 @@ Piano, Gitar, Bass, dan Drum tercentang secara bawaan. **String** (biola, viola,
 | Pilihan | Nilai |
 |---|---|
 | Mood | Tenang, Ceria, Melankolis |
-| Genre | Akustik, Lo-fi, Pop, Jazz |
+| Genre | Akustik, Lo-fi, Pop, Jazz, Bossa |
 | Sumber | **Kit orisinal**: melodi tulisan tangan · **Klasik**: korale J.S. Bach (domain publik) |
 | Melodi | Gantian piano & gitar, atau Piano saja |
 | Durasi | 30 detik, 1, 2, 3, 5 menit |
 
-Gaya lagu, bentuk lagu (pembuka, melodi utama, bagian tengah, jeda, penutup), dan pola per instrumen saat ini berlaku penuh untuk **Kit orisinal** untuk semua genre (**Akustik**, **Lo-fi**, **Pop**, **Jazz**) dan semua mood (**Tenang**, **Ceria**, **Melankolis**). Melankolis memakai melodi bernada minor yang ditulis khusus. Jazz punya ketukan diayun, walking bass, akor piano jazz, dan pola cymbal ride. Pop punya drum pop atau balada, bass berdenyut, dan akor piano berdenyut. Lo-fi punya ketukan diayun, akor piano jazz, drum boom-bap, suara hangat dengan goyang kaset, dan desis piringan hitam. 
+Gaya lagu, bentuk lagu (pembuka, melodi utama, bagian tengah, jeda, penutup), dan pola per instrumen saat ini berlaku penuh untuk **Kit orisinal** untuk semua genre (**Akustik**, **Lo-fi**, **Pop**, **Jazz**, **Bossa**) dan semua mood (**Tenang**, **Ceria**, **Melankolis**). Melankolis memakai melodi bernada minor yang ditulis khusus. Bossa punya pola petik gitar nilon khas bossa nova, akor berwarna (maj7, m7), pukulan rim dengan klave bossa, dan ketukan lurus. Jazz punya ketukan diayun, walking bass, akor piano jazz, dan pola cymbal ride. Pop punya drum pop atau balada, bass berdenyut, dan akor piano berdenyut. Lo-fi punya ketukan diayun, akor piano jazz, drum boom-bap, suara hangat dengan goyang kaset, dan desis piringan hitam. 
 
 ## CLI
 
@@ -86,7 +86,7 @@ Rangkaian 60 menit butuh beberapa menit untuk dibuat, dan WAV-nya sekitar 600 MB
 | Opsi | Arti | Bawaan |
 |---|---|---|
 | `--mood` | Tenang, Ceria, Melankolis | Tenang |
-| `--genre` | Akustik, Lo-fi, Pop, Jazz | Akustik |
+| `--genre` | Akustik, Lo-fi, Pop, Jazz, Bossa | Akustik |
 | `--sumber` | `kit` atau `klasik` | kit |
 | `--durasi` | panjang lagu dalam detik (10–900) | 60 |
 | `--instrumen` | daftar instrumen, dipisah koma (Piano, Gitar, Bass, Drum, String) | Piano,Gitar,Bass,Drum |
