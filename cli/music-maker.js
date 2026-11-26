@@ -32,6 +32,10 @@ Opsi untuk "buat":
   --keluar <folder>                       Folder hasil. Bawaan: ./hasil
   --dari <file.json>                      Buat ulang lagu dari file pengaturan yang disimpan
   --browser <path>                        Path ke Chrome/Edge/Chromium kalau tidak ditemukan otomatis
+  --midi                                  Simpan juga file MIDI (satu jalur per instrumen)
+  --stem                                  Simpan juga satu WAV per instrumen
+  --video <gambar>                        Buat juga video MP4 (gambar diam + musik). Butuh ffmpeg
+  --ffmpeg <path>                         Path ke ffmpeg kalau tidak ada di PATH
 
 Opsi tambahan untuk "rangkaian" (semua opsi "buat" juga berlaku untuk setiap lagu):
   --menit <angka>                         Panjang rangkaian. Bawaan: 30
@@ -60,6 +64,8 @@ function parseArgs(argv) {
     if (arg === '-h' || arg === '--help' || arg === '--bantuan') { opts.bantuan = true; continue; }
     if (!arg.startsWith('--')) throw new Error(`Argumen tidak dikenal: ${arg}`);
     const [key, inline] = arg.slice(2).split(/=(.*)/s);
+    // On/off switches need no value.
+    if (['midi', 'stem'].includes(key) && inline === undefined) { opts[key] = true; continue; }
     const value = inline ?? rest[++i];
     if (value === undefined) throw new Error(`Opsi --${key} butuh nilai.`);
     opts[key] = value;
@@ -75,7 +81,7 @@ const pairs = (text, name) => Object.fromEntries(list(text).map(item => {
 
 // Turn command-line options into the settings the engine needs.
 function settingsFrom(opts) {
-  const known = ['mood','genre','sumber','durasi','instrumen','melodi','seed','versi','gaya','pola','variasi','volume','bisu','keluar','dari','browser','bantuan','menit','durasi-lagu','jeda'];
+  const known = ['mood','genre','sumber','durasi','instrumen','melodi','seed','versi','gaya','pola','variasi','volume','bisu','keluar','dari','browser','bantuan','menit','durasi-lagu','jeda','midi','stem','video','ffmpeg'];
   for (const key of Object.keys(opts)) if (!known.includes(key)) throw new Error(`Opsi tidak dikenal: --${key}. Lihat "bantuan".`);
   const base = opts.dari ? JSON.parse(fs.readFileSync(opts.dari, 'utf8')) : {};
   const s = {
@@ -141,6 +147,8 @@ function renderInPage(s) {
     let peak = 0;
     for (let c = 0; c < buf.numberOfChannels; c++) for (const x of buf.getChannelData(c)) peak = Math.max(peak, Math.abs(x));
     window.__wav = new Uint8Array(await wav(buf).arrayBuffer());
+    window.__gain = buf.gain;
+    window.__envelope = buf.envelope;
     const variants = {};
     for (const track of song.tracks) if (song.parts?.[track.name])
       variants[track.name] = (song.variants[track.name] ?? 0) % variationCount[track.name][song.parts[track.name]] + 1;
@@ -161,6 +169,37 @@ async function fetchWav(page, size) {
     chunks.push(Buffer.from(b64, 'base64'));
   }
   return Buffer.concat(chunks);
+}
+
+// One WAV per instrument, with the same level and limiter movement as the full mix
+// (no vinyl noise), so the stems add up to the song.
+async function saveStems(page, base) {
+  const names = await page.evaluate(() => song.tracks.filter(t => !t.muted).map(t => t.name));
+  for (const name of names) {
+    const size = await page.evaluate(async name => {
+      const saved = song.tracks.map(t => t.muted);
+      song.tracks.forEach(t => { t.muted = t.name !== name; });
+      masterBus.noNoise = true;
+      try { window.__wav = new Uint8Array(await wav(limit(await renderMix(false), window.__gain, window.__envelope)).arrayBuffer()); }
+      finally { masterBus.noNoise = false; song.tracks.forEach((t, i) => { t.muted = saved[i]; }); }
+      return window.__wav.length;
+    }, name);
+    fs.writeFileSync(`${base}-stem-${name.toLowerCase()}.wav`, await fetchWav(page, size));
+  }
+  return names;
+}
+// Still image + music as an MP4 for YouTube, made with ffmpeg.
+function saveVideo(wavFile, image, ffmpeg = 'ffmpeg') {
+  const { spawnSync } = require('child_process');
+  if (!fs.existsSync(image)) throw new Error(`Gambar tidak ditemukan: ${image}`);
+  if (spawnSync(ffmpeg, ['-version']).status !== 0)
+    throw new Error('ffmpeg tidak ditemukan. Pasang ffmpeg (https://ffmpeg.org), atau beri lokasinya dengan --ffmpeg <path>.');
+  const out = wavFile.replace(/\.wav$/, '.mp4');
+  const result = spawnSync(ffmpeg, ['-y', '-loglevel', 'error', '-loop', '1', '-framerate', '2', '-i', image, '-i', wavFile,
+    '-vf', 'scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,format=yuv420p',
+    '-c:v', 'libx264', '-tune', 'stillimage', '-c:a', 'aac', '-b:a', '320k', '-shortest', '-movflags', '+faststart', out]);
+  if (result.status !== 0) throw new Error('ffmpeg gagal membuat video: ' + String(result.stderr).trim().split('\n').pop());
+  return out;
 }
 
 async function make(opts) {
@@ -192,6 +231,13 @@ async function make(opts) {
       for (const note of info.notes) console.log('  Catatan: ' + note);
       const shown = path.relative(process.cwd(), file);
       console.log(`  Disimpan: ${shown.startsWith('..') ? file : shown}`);
+      const base = file.replace(/\.wav$/, '');
+      if (opts.midi) {
+        fs.writeFileSync(base + '.mid', Buffer.from(await page.evaluate(() => Array.from(midiFile()))));
+        console.log(`  MIDI: ${path.basename(base)}.mid`);
+      }
+      if (opts.stem) console.log(`  Stem: ${(await saveStems(page, base)).map(n => path.basename(base) + '-stem-' + n.toLowerCase() + '.wav').join(', ')}`);
+      if (opts.video) console.log(`  Video: ${path.basename(saveVideo(file, opts.video, opts.ffmpeg))}`);
     }
   } finally {
     await browser.close();
@@ -210,6 +256,7 @@ async function mix(opts) {
   if (!(minutes >= 1 && minutes <= 180)) throw new Error('--menit harus antara 1 dan 180.');
   if (!(each >= 20 && each <= 600)) throw new Error('--durasi-lagu harus antara 20 dan 600 detik.');
   if (!(fade >= 0 && fade <= 10)) throw new Error('--jeda harus antara 0 dan 10 detik.');
+  if (opts.midi || opts.stem) throw new Error('--midi dan --stem hanya untuk "buat", bukan rangkaian.');
   const settings = settingsFrom({ ...opts, durasi: each, menit: undefined, 'durasi-lagu': undefined, jeda: undefined });
   const outDir = path.resolve(opts.keluar ?? 'hasil');
   fs.mkdirSync(outDir, { recursive: true });
@@ -261,6 +308,10 @@ async function mix(opts) {
   console.log(`Selesai: ${clock(written / (rate * frameBytes))}, ${songs.length} lagu, ${(written / 1e6).toFixed(0)} MB`);
   console.log(`  ${file}`);
   console.log(`  Daftar lagu untuk deskripsi YouTube: ${path.join(outDir, name + '.txt')}`);
+  if (opts.video) {
+    console.log('Membuat video…');
+    console.log(`  Video: ${saveVideo(file, opts.video, opts.ffmpeg)}`);
+  }
 }
 
 async function show(opts) {

@@ -904,6 +904,40 @@ async function songFromProject(p) {
   }
   return { notes };
 }
+// ---- MIDI export (Standard MIDI File, one track per instrument) ----
+// Timing follows the song as played (swing, slowing down), at 480 ticks per quarter note.
+const midiSetup = { Piano:{ channel:0, program:0 }, Gitar:{ channel:1, program:24 }, Bass:{ channel:2, program:32 }, Drum:{ channel:9 } };
+const midiDrums = { kick:36, snare:38, rim:37, hat:82 };
+function midiFile() {
+  const ppq = 480, tick = seconds => Math.max(0, Math.round(seconds / song.step * ppq / 2));
+  const varLen = n => { const out = [n & 127]; while ((n >>= 7)) out.unshift((n & 127) | 128); return out; };
+  const text = str => [...new TextEncoder().encode(str)];
+  const chunk = (type, bytes) => [...text(type), bytes.length >>> 24, bytes.length >>> 16 & 255, bytes.length >>> 8 & 255, bytes.length & 255, ...bytes];
+  const track = (name, events) => {
+    events.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    const bytes = [0, 0xff, 0x03, ...varLen(text(name).length), ...text(name)];
+    let last = 0;
+    for (const [at, , data] of events) { bytes.push(...varLen(at - last), ...data); last = at; }
+    bytes.push(0, 0xff, 0x2f, 0);
+    return chunk('MTrk', bytes);
+  };
+  const usPerQuarter = Math.round(song.step * 2 * 1e6);
+  const tracks = [track('Music Maker', [[0, 0, [0xff, 0x51, 3, usPerQuarter >> 16 & 255, usPerQuarter >> 8 & 255, usPerQuarter & 255]]])];
+  for (const t of song.tracks) {
+    const setup = midiSetup[t.name], ch = setup.channel, list = [];
+    if (setup.program !== undefined) list.push([0, 0, [0xc0 | ch, setup.program]]);
+    for (const e of t.events) {
+      const note = t.name === 'Drum' ? midiDrums[e.note] : e.note;
+      if (note === undefined || note < 0 || note > 127) continue;
+      const start = tick(onset(e));
+      const seconds = t.name === 'Drum' ? song.step / 2 : e.ring ?? e.len * song.step;
+      const velocity = Math.max(15, Math.min(127, Math.round(30 + e.level * 160 + ((e.boost ?? 1) > 1 ? 15 : 0))));
+      list.push([start, 1, [0x90 | ch, note, velocity]], [start + Math.max(1, tick(seconds)), 0, [0x80 | ch, note, 0]]);
+    }
+    tracks.push(track(t.name, list));
+  }
+  return new Uint8Array([...chunk('MThd', [0, 1, 0, tracks.length, ppq >> 8, ppq & 255]), ...tracks.flat()]);
+}
 function download(blob, name) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
@@ -911,6 +945,11 @@ function download(blob, name) {
   setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 const fileBase = s => `${s.mood}-${s.genre}-${s.source}-seed${s.seed}`.toLowerCase().replace(/[^a-z0-9-]+/g, '-');
+el('midi').onclick = () => {
+  if (!song) return;
+  download(new Blob([midiFile()], { type:'audio/midi' }), fileBase(song) + '.mid');
+  el('message').textContent = 'MIDI disimpan: satu jalur per instrumen, bisa dibuka di program musik (DAW).';
+};
 el('save').onclick = () => {
   if (!song) return;
   download(new Blob([JSON.stringify(projectOf(song), null, 2) + '\n'], { type:'application/json' }), fileBase(song) + '.json');
@@ -1100,13 +1139,16 @@ function masterBus(audio, raw = false, when = 0, offset = 0) {
     const clean = audio.createBiquadFilter();
     clean.type = 'highpass'; clean.frequency.value = 45;
     out = input.connect(warm).connect(clean);
-    const crackle = audio.createBufferSource();
-    crackle.buffer = crackleBuffer(audio, total());
-    const level = audio.createGain();
-    level.gain.value = lofi.crackle;
-    crackle.connect(level).connect(input);
-    crackle.start(when, offset);
-    input.crackle = crackle;
+    // Stems leave the vinyl noise out, otherwise it would add up once per instrument.
+    if (!masterBus.noNoise) {
+      const crackle = audio.createBufferSource();
+      crackle.buffer = crackleBuffer(audio, total());
+      const level = audio.createGain();
+      level.gain.value = lofi.crackle;
+      crackle.connect(level).connect(input);
+      crackle.start(when, offset);
+      input.crackle = crackle;
+    }
   }
   if (raw) out.connect(audio.destination);
   else {
@@ -1165,10 +1207,17 @@ function loudness(buffer) {
 // Look-ahead peak limiter for the exported file: turns brief peaks down smoothly so the
 // whole song can reach YouTube loudness. Peaks never pass `ceilingDb`.
 const ceilingDb = -1.5;
-function limit(buffer, gain) {
+// envelope: reuse the gain curve of an earlier run (stems follow the full mix exactly).
+function limit(buffer, gain, envelope = null) {
   const n = buffer.length, data = [...Array(buffer.numberOfChannels)].map((_, c) => buffer.getChannelData(c));
   const thr = 10 ** (ceilingDb / 20), look = Math.floor(buffer.sampleRate * .005), win = 2 * look;
   const release = 1 - Math.exp(-1 / (buffer.sampleRate * .15));
+  const out = new AudioBuffer({ length: n, numberOfChannels: data.length, sampleRate: buffer.sampleRate });
+  const outData = data.map((_, c) => out.getChannelData(c));
+  if (envelope) {
+    for (let i = 0; i < n; i++) for (let c = 0; c < data.length; c++) outData[c][i] = data[c][i] * gain * envelope[i];
+    return out;
+  }
   const need = new Float32Array(n);
   for (let i = 0; i < n; i++) {
     let peak = 0;
@@ -1188,15 +1237,15 @@ function limit(buffer, gain) {
   let g = 1;
   for (let i = 0; i < n; i++) { g = Math.min(ahead[i], g + (1 - g) * release); env[i] = g; }
   let sum = look * env[0], deepest = 1;
-  const out = new AudioBuffer({ length: n, numberOfChannels: data.length, sampleRate: buffer.sampleRate });
-  const outData = data.map((_, c) => out.getChannelData(c));
+  const curve = new Float32Array(n);
   for (let i = 0; i < n; i++) {
     sum += env[i] - (i >= look ? env[i - look] : env[0]);
-    const smooth = sum / look;
+    const smooth = curve[i] = sum / look;
     deepest = Math.min(deepest, smooth);
     for (let c = 0; c < data.length; c++) outData[c][i] = data[c][i] * gain * smooth;
   }
   out.deepestDb = 20 * Math.log10(deepest);
+  out.envelope = curve;
   return out;
 }
 // Final file: reach the target loudness, but never squash peaks by more than `maxSquashDb`.
@@ -1210,6 +1259,7 @@ function master(raw) {
   }
   out = limit(raw, gain);
   out.loudness = loudness(out);
+  out.gain = gain;
   return out;
 }
 // Gain for listening in the app: as loud as the target allows without touching the ceiling.

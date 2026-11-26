@@ -19,7 +19,8 @@ Keduanya memakai mesin musik yang sama (`studio.js`), jadi pengaturan yang sama 
    - **Volume** dan **Bisukan**.
    - **Buat ulang**: pindah ke variasi lain dari pola itu. Instrumen lain tidak berubah.
 5. Tekan **Unduh WAV** untuk menyimpan hasilnya.
-6. Tekan **Simpan proyek** untuk menyimpan pengaturan lagu (`.json`). Dengan **Buka proyek**, lagu itu bisa dibuat persis sama lagi, termasuk pola, variasi, volume, dan instrumen yang dibisukan. Format file proyeknya sama dengan CLI, jadi proyek dari aplikasi bisa dipakai di CLI (`--dari`) dan sebaliknya.
+6. Tekan **Unduh MIDI** untuk menyimpan not lagu (satu jalur per instrumen) yang bisa dibuka di program musik seperti FL Studio, Ableton, atau GarageBand.
+7. Tekan **Simpan proyek** untuk menyimpan pengaturan lagu (`.json`). Dengan **Buka proyek**, lagu itu bisa dibuat persis sama lagi, termasuk pola, variasi, volume, dan instrumen yang dibisukan. Format file proyeknya sama dengan CLI, jadi proyek dari aplikasi bisa dipakai di CLI (`--dari`) dan sebaliknya.
 
 ### Pilihan
 
@@ -96,6 +97,10 @@ Rangkaian 60 menit butuh beberapa menit untuk dibuat, dan WAV-nya sekitar 600 MB
 | `--keluar` | folder hasil | `./hasil` |
 | `--dari` | buat ulang dari file pengaturan `.json` | |
 | `--browser` | lokasi Chrome/Edge/Chromium | otomatis |
+| `--midi` | simpan juga file MIDI | |
+| `--stem` | simpan juga satu WAV per instrumen | |
+| `--video` | buat juga video MP4 dari gambar diam + musik | |
+| `--ffmpeg` | lokasi ffmpeg kalau tidak ada di PATH | `ffmpeg` |
 
 ### Contoh
 
@@ -117,6 +122,17 @@ Setiap lagu disimpan sebagai dua file di folder hasil:
 
 - `tenang-akustik-kit-seed123.wav`: audio stereo 44,1 kHz yang sudah di-master.
 - `tenang-akustik-kit-seed123.json`: pengaturan lengkap, termasuk gaya, pola, dan variasi yang dipakai. Simpan file ini untuk lagu yang ingin dibuat ulang.
+
+Dengan opsi tambahan:
+
+- `--midi`: `….mid`, not lagu per instrumen untuk program musik (DAW).
+- `--stem`: `…-stem-piano.wav`, `…-stem-gitar.wav`, dan seterusnya. Kerasnya dan gerak limiternya sama dengan mix lengkap, jadi kalau digabung hasilnya sama dengan lagunya. Desis piringan hitam Lo-fi tidak ikut.
+- `--video gambar.jpg`: `….mp4` 1920×1080 berisi gambar diam dan musiknya, siap diunggah ke YouTube. Butuh [ffmpeg](https://ffmpeg.org). Juga berlaku untuk `rangkaian`.
+
+```bash
+node cli/music-maker.js buat --genre Lo-fi --durasi 180 --midi --stem --video sampul.jpg
+node cli/music-maker.js rangkaian --genre Lo-fi --menit 60 --video sampul.jpg
+```
 
 Di layar, CLI menampilkan deskripsi lagu, durasi, kekerasan suara (LUFS), dan puncak suara.
 
