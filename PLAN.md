@@ -39,6 +39,13 @@ Cara kerja dengan pengguna: pengguna tidak membaca not dan tidak menilai nada. S
   - Urutan: pembuka (hanya iringan, untuk lagu ≥6 frasa) → A → Av (irama melodi diubah, `otherFeel`) → B → Av → C/Cv (melodi kedua) → B2 → A → jeda (tipis) → … → penutup.
   - Lagu pendek tetap berbentuk A Av B Av.
   - Melodi bergantian piano/gitar per kemunculan melodi (`turn`), bukan per frasa.
+- **Variasi lagu panjang** (pengguna: "kurang variasi, sedikit membosankan"; dulu drum, bass, dan iringan sama persis di semua bagian, nada dasar tidak berubah):
+  - Variasi pola berganti per bagian (`sectionShift`), dan gitar beralih petik/genjreng di bagian tengah.
+  - Drum istirahat di C (`rest`).
+  - Nada dasar naik satu nada penuh setelah bagian jeda (`shift`, `keyAt`; lagu ≥10 frasa).
+  - Melodi piano naik satu oktav di Cv dan Av setelah naik nada (`high`, jika tetap di bawah C7).
+  - Klasik: setiap pengulangan korale, gitar membawa melodi dan piano mengiringi.
+  - Uji: 103.184 nada iringan dan 1.200 melodi, 0 nada di luar akor. Volume per bagian berubah paling banyak 2 dB.
 - **Durasi**: 30 detik, 1, 2, 3, dan 5 menit. Klasik panjang menyambung beberapa korale (masing-masing dua kali) dengan tempo tetap 71 BPM; korale terakhir dipilih yang paling pas dengan sisa waktu.
 - **Kecepatan**: nada dijadwalkan bertahap (`pump` saat diputar, `audio.suspend` saat render), dan nada yang selesai dilepas. Render 5 menit turun dari 112–140 detik menjadi sekitar 16 detik, dengan hasil suara identik (selisih −77 dB).
 - **Mix dan mastering**:
@@ -69,7 +76,7 @@ Cara kerja dengan pengguna: pengguna tidak membaca not dan tidak menilai nada. S
 
 ## Menunggu dengar
 
-- Contoh 3 menit Kit (Santai, seed 3) dan Klasik (seed 6): apakah membosankan, dan mulai menit ke berapa.
+- Contoh 3 menit: pengguna menilai "sudah bagus tapi kurang variasi, sedikit membosankan". Uji buta versi bervariasi: Lagu 1 (Kit) A = baru, Lagu 2 (Klasik) B = baru.
 
 ## Berikutnya (urut prioritas)
 

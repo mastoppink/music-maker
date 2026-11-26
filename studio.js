@@ -55,7 +55,10 @@ function hashName(text) {
 }
 let rand = Math.random;
 const scaleSteps = [0, 2, 4, 5, 7, 9, 11];
-const pitch = degree => song.key + scaleSteps[((degree % 7) + 7) % 7] + 12 * Math.floor(degree / 7);
+// Key of a bar: long songs move up a whole step after the pause section (harmony.shift).
+const keyAt = bar => song.key + (song.harmony?.[bar]?.shift ?? 0);
+let keyNow = null;   // set per bar while arranging
+const pitch = degree => (keyNow ?? song.key) + scaleSteps[((degree % 7) + 7) % 7] + 12 * Math.floor(degree / 7);
 
 // Hand-written four-bar kits for Akustik · Tenang. Chords are scale-degree roots
 // (0 = I, 3 = IV, 4 = V, 5 = vi). Melody notes are [bar, onset, length, degree] in
@@ -197,7 +200,7 @@ function planSong(bars) {
   const phrases = bars / 4;
   const form = songForm(phrases);
   const harmony = [], melody = [], used = [];
-  let turn = -1, firstTune = true;
+  let turn = -1, firstTune = true, lifted = false;
   for (let bar = 0; bar < bars; bar++) {
     const phrase = Math.floor(bar / 4), pos = bar % 4, last = phrase === phrases - 1;
     const section = form[phrase], kit = kitFor[section];
@@ -205,6 +208,8 @@ function planSong(bars) {
     // energy 0: no bass or drums; 1: normal; 2: fuller.
     let energy = section === 'B' || section === 'B2' || section === 'Cv' ? 2 : 1;
     if (section === 'intro' || section === 'pause') energy = 0;
+    // Long songs: after the pause, everything moves up a whole step for a fresh lift.
+    if (section === 'pause' && phrases >= 10) lifted = true;
     if (section !== 'intro' && pos === 0) {
       turn++;
       // The tune is heard once on its own before bass and drums come in.
@@ -226,6 +231,11 @@ function planSong(bars) {
     const feel = section === 'Av' || section === 'Cv' ? otherFeel[song.style.feel] : song.style.feel;
     if (!(last && pos >= 2)) notes = applyFeel(notes, feel);
     harmony.push({ root, phrase, pos, section, energy, turn: Math.max(0, turn),
+      shift: lifted && section !== 'pause' ? 2 : 0,
+      // Drums rest while the second tune is first heard; bass carries on.
+      rest: section === 'C',
+      // Piano melody an octave higher on some repeats (checked against range when played).
+      high: section === 'Cv' || (lifted && section === 'Av'),
       lift: energy === 2 || kit.kind === 'b', cadence: last && pos === 2, final: bar === bars - 1 });
     melody.push(notes);
   }
@@ -236,25 +246,28 @@ function planSong(bars) {
 // Voices: 0 soprano (tune), 1 alto, 2 tenor (inner parts), 3 bass.
 function arrangeChorale(name) {
   const has = n => song.tracks.some(t => t.name === n);
-  const voicesFor = {
-    Piano: has('Gitar') ? [0, ...(has('Bass') ? [] : [3])] : [0,1,2, ...(has('Bass') ? [] : [3])],
-    Gitar: has('Piano') ? [1,2] : [0,1,2, ...(has('Bass') ? [] : [3])],
+  // On every second pass piano and guitar trade places: guitar takes the tune.
+  const voicesAt = pass => ({
+    Piano: has('Gitar') ? (pass % 2 ? [1,2] : [0]).concat(has('Bass') ? [] : [3]) : [0,1,2, ...(has('Bass') ? [] : [3])],
+    Gitar: has('Piano') ? (pass % 2 ? [0] : [1,2]) : [0,1,2, ...(has('Bass') ? [] : [3])],
     Bass: [3],
     Drum: []
-  }[name];
+  }[name]);
   const events = [];
   let offset = 0;
   for (let pass = 0; pass < song.passes.length; pass++) {
     const piece = song.passes[pass];
     if (pass) offset += song.passes[pass - 1].len / 2;
     const lastPass = pass === song.passes.length - 1;
-    for (const v of voicesFor) {
+    for (const v of voicesAt(pass)) {
       for (const [start, len, midi] of piece.voices[v]) {
         const ending = lastPass && start + len >= piece.len;
-        const level = name === 'Gitar' ? (v === 0 ? .66 : .5) : name === 'Bass' ? .3 : v === 0 ? .42 : .24;
+        const level = name === 'Gitar' ? (v === 0 && !has('Piano') ? .66 : .5) : name === 'Bass' ? .3 : v === 0 ? .42 : .24;
+        // Guitar tune uses the same recordings as its accompaniment, lifted to sit like the piano tune.
+        const boost = name === 'Gitar' && v === 0 && has('Piano') ? gitarMelodyBoost : 1;
         events.push({ step: offset + start / 2, note: name === 'Bass' ? midi - 12 : midi,
           len: ending ? len / 2 + 3 : len / 2, level: level * (.94 + .06 * rand()),
-          delay: (v === 0 ? .02 : .008) + rand() * .008 });
+          delay: (v === 0 ? .02 : .008) + rand() * .008, boost });
       }
     }
     if (name === 'Drum' && pass > 0) {
@@ -278,7 +291,7 @@ function roles(bar) {
   // Bass and drums play only in sections with energy (not in the intro, the first
   // statement of the tune, or the thin pause).
   const ensemble = energy >= 1 || !melody;
-  return { melody, chords, bass: has('Bass') && ensemble, drums: has('Drum') && ensemble };
+  return { melody, chords, bass: has('Bass') && ensemble, drums: has('Drum') && ensemble && !song.harmony[bar].rest };
 }
 
 // Pattern choices per instrument, shown in each track row. "Buat ulang" steps
@@ -294,7 +307,7 @@ const variationCount = { Gitar:{ petik:3, genjreng:2 }, Piano:{ blok:3, pecah:3 
 function fingerpick(events, bar, root, final, lift, quiet, turn, noBass, v = 0) {
   const grip = grips[root];
   const strings = Object.keys(grip);
-  const capo = song.key - 60;
+  const capo = keyAt(bar) - 60;
   function pluck(step, string, level, delay = 0) {
     events.push({ step: bar * 8 + step, string, note: tuning[string] + grip[string] + capo,
       level: level * (.96 + .08 * rand()), delay: delay + .004 * rand(), len: 3 });
@@ -336,7 +349,7 @@ function fingerpick(events, bar, root, final, lift, quiet, turn, noBass, v = 0) 
 // Soft strummed guitar: whole chord, down strokes low to high, light up strokes on top.
 function strum(events, bar, root, final, noBass, v = 0) {
   const grip = grips[root];
-  const capo = song.key - 60;
+  const capo = keyAt(bar) - 60;
   let strings = Object.keys(grip);
   const hit = (step, up, level) => {
     const set = up ? strings.slice(-3).reverse() : strings;
@@ -363,12 +376,19 @@ function arrange(name, variant = 0) {
   const bars = song.harmony.length;
   const events = [];
   const turn = rand() < .5 ? 0 : 1;
-  const part = song.parts?.[name];
-  const v = part ? variant % variationCount[name][part] : 0;
+  const chosen = song.parts?.[name];
+  // Accompaniment changes from section to section so long songs keep moving.
+  const sectionShift = { intro:0, A:0, Av:1, B:2, B2:1, C:1, Cv:2, pause:0, outro:0 };
+  const swap = { petik:'genjreng', genjreng:'petik' };
+  const long = song.harmony.length >= 24;
   const alone = song.tracks.length === 1;
   for (let bar = 0; bar < bars; bar++) {
-    const { root, lift, cadence, final } = song.harmony[bar];
+    const { root, lift, cadence, final, section } = song.harmony[bar];
     const role = roles(bar);
+    keyNow = keyAt(bar);
+    // In long songs the guitar switches between picking and strumming in the middle sections.
+    const part = chosen && name === 'Gitar' && long && (section === 'B' || section === 'B2') ? swap[chosen] : chosen;
+    const v = part ? (variant + (long ? sectionShift[section] : 0)) % variationCount[name][part] : 0;
     // boost scales loudness only, without changing which recorded layer is used.
     const add = (beat, note, len, level, delay = 0, boost = 1) => events.push({
       step: bar * 8 + beat, note, len, level: level * (.94 + .06 * rand()), delay: delay + rand() * .008, boost });
@@ -379,7 +399,12 @@ function arrange(name, variant = 0) {
       }
     };
     if (name === 'Piano') {
-      if (role.melody === 'Piano') playMelody(0, .40);
+      if (role.melody === 'Piano') {
+        // Up an octave on marked repeats, if the whole phrase stays below C7.
+        const phraseBars = song.melody.slice(bar - bar % 4, bar - bar % 4 + 4).flat();
+        const top = Math.max(...phraseBars.map(n => pitch(n[2])));
+        playMelody(song.harmony[bar].high && top + 12 <= 88 ? 12 : 0, .40);
+      }
       if (role.chords === 'Piano' && part === 'pecah') {
         // Broken chord in eighths; the pedal keeps it ringing as one wash.
         // Every shape uses only root, fifth, octave and the third above (chord tones).
@@ -413,7 +438,7 @@ function arrange(name, variant = 0) {
         if (role.chords !== 'Gitar') {
           // Thumb notes under the tune, as a fingerstyle player would, so the guitar
           // does not turn into a bare single-note instrument.
-          const capo = song.key - 60, grip = grips[root];
+          const capo = keyAt(bar) - 60, grip = grips[root];
           const thumb = (beat, string, level) => events.push({ step: bar * 8 + beat, string,
             note: tuning[string] + grip[string] + capo, level: level * (.95 + .08 * rand()), delay: .004 * rand(), len: 3 });
           thumb(0, 'D', .46);
@@ -451,6 +476,7 @@ function arrange(name, variant = 0) {
       }
     }
   }
+  keyNow = null;
   return events;
 }
 function compose(name) {
@@ -510,7 +536,7 @@ function articulateGuitar(events) {
     const choices = playable.filter(s => s.layer===firmest);
     // A melody note (no fixed string) is played low on the neck, as a guitarist would,
     // instead of high up on a middle string.
-    const fret = s => event.note - tuning[s.string] - (song.key - 60);
+    const fret = s => event.note - tuning[s.string] - (keyAt(Math.floor(event.step/8)) - 60);
     const score = s => Math.abs(s.midi-event.note)
       + (event.string ? 0 : Math.max(0, fret(s) - 5))
       + (previous.get(event.note)===s.string ? 2 : 0)
@@ -524,8 +550,8 @@ function articulateGuitar(events) {
     }
     let boundary = Math.floor(event.step/8)+1;
     while(boundary<bars) {
-      const sameChord = chord(boundary)===chord(boundary-1);
-      const heldFret = event.string && grips[chord(boundary)][event.string] === event.note-tuning[event.string]-(song.key-60);
+      const sameChord = chord(boundary)===chord(boundary-1) && keyAt(boundary)===keyAt(boundary-1);
+      const heldFret = event.string && grips[chord(boundary)][event.string] === event.note-tuning[event.string]-(keyAt(boundary)-60);
       if (!sameChord && !heldFret) break;
       boundary++;
     }
