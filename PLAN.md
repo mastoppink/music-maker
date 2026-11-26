@@ -20,7 +20,7 @@ Cara kerja dengan pengguna: pengguna tidak membaca not dan tidak menilai nada. S
 - **Mood dan genre**:
   - Akustik dan Lo-fi, mood Tenang dan Ceria, memakai mesin kit dan gaya (lengkap).
   - Mood Melankolis dan genre Pop masih memakai mesin lama yang sederhana.
-- **Lo-fi** (gaya Belajar, Malam, Kopi pagi): swing dari `onset`, piano `jazz` (akor septim, digulung, tanpa root bila ada bass), drum `lofi` (boom-bap), master low-pass 4,2 kHz dan high-pass 45 Hz, goyang nada seperti kaset (±7 sen), desis piringan hitam (`crackleBuffer`, sekitar 22 dB di bawah musik). Uji: 240 lagu, 150.115 nada iringan, 0 di luar akor septim.
+- **Lo-fi** (gaya Belajar, Malam, Kopi pagi): swing dari `onset`, piano `jazz` (akor septim, digulung, tanpa root bila ada bass), drum `lofi` (boom-bap), master low-pass dan high-pass 45 Hz, goyang nada seperti kaset, desis piringan hitam (`crackleBuffer`). Kekuatan efek di `lofi`. Pengguna: "semua bagus, tapi efek rusaknya perlu diperhalus supaya tetap enak didengarkan lama", jadi diperhalus: desis 22 → 31 dB di bawah musik, kretek 4 → 2 per detik, goyang ±7 → ±3 sen, low-pass 4,2 → 6,5 kHz. Uji: 240 lagu, 150.115 nada iringan, 0 di luar akor septim.
 - **Sumber lagu** (pilihan "Sumber" di UI):
   - *Kit orisinal* (pilihan pengguna): 12 kit empat birama di `studio.js` (`kits`), terdiri dari 8 kit utama ("a") dan 4 kit kontras ("b"). `planSong` merangkai kit utama, bagian kontras, lalu kit utama lagi, dan menutup lagu.
   - *Klasik (Bach)*: 24 korale di `classics.js`. Pengguna mencoba keduanya dan menilai "lumayan bagus", jadi keduanya dipertahankan.
@@ -77,9 +77,7 @@ Cara kerja dengan pengguna: pengguna tidak membaca not dan tidak menilai nada. S
 
 ## Menunggu dengar
 
-- Contoh 3 menit: pengguna menilai "sudah bagus tapi kurang variasi, sedikit membosankan". Uji buta versi bervariasi: Lagu 1 (Kit) A = baru, Lagu 2 (Klasik) B = baru.
-
-- Tiga contoh Lo-fi pertama (Belajar seed 21, Malam seed 42, Kopi pagi seed 50): apakah terasa lo-fi, mana yang disukai.
+- Lo-fi: ketiga contoh pertama dinilai "semua bagus". Uji buta efek diperhalus (volume disamakan −18,5 LUFS): Lagu 1 (Belajar) A = halus, Lagu 2 (Kopi pagi) B = halus.
 - Variasi lagu panjang: pengguna mendengar ulang sampai akhir; versi bervariasi (1 A / 2 B) punya variasi di akhir. Semua variasi menyala (bisa dimatikan per jenis lewat `song.vary`).
 
 ## Berikutnya (urut prioritas)

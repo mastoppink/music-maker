@@ -624,7 +624,7 @@ function voice(track,event,when,audio=ctx,remaining=total()-(when-start)) {
   source.playbackRate.value = rate;
   if (track.name === 'Gitar') source.detune.value = -(guitarCents[sample.key] ?? 0);
   // Lo-fi: slow pitch drift between notes, like a worn tape.
-  if (song.genre === 'Lo-fi' && !drum) source.detune.value += 7 * Math.sin(2 * Math.PI * .3 * event.step * song.step);
+  if (song.genre === 'Lo-fi' && !drum) source.detune.value += lofi.wobbleCents * Math.sin(2 * Math.PI * .3 * event.step * song.step);
   const release = event.release ?? ({ Piano:.58, Gitar:.07, Bass:.16, Drum:.03 })[track.name];
   const length = Math.min(remaining, sample.buffer.duration/rate,
     event.ring != null ? event.ring + release : drum ? sample.buffer.duration : event.len * song.step + release);
@@ -910,13 +910,15 @@ function crackleBuffer(audio, seconds) {
   let hiss = 0, pop = 0;
   for (let i = 0; i < length; i++) {
     hiss = hiss * .92 + (r() * 2 - 1) * .08;
-    if (r() < 4 / rate) pop = (r() < .5 ? -1 : 1) * (.04 + r() * .16);
+    if (r() < lofi.popsPerSecond / rate) pop = (r() < .5 ? -1 : 1) * (.03 + r() * lofi.popSize);
     data[i] = hiss * .012 + pop;
     pop *= .82;
   }
   return buffer;
 }
-const crackleLevel = .5;
+// Strength of the Lo-fi wear. Softened after listening ("efek rusaknya perlu diperhalus
+// supaya tetap enak didengarkan lama"): less noise, fewer crackles, less wobble, brighter tone.
+const lofi = { crackle:.28, popsPerSecond:2, popSize:.09, wobbleCents:3, toneHz:6500 };
 // when/offset: where the crackle starts in the audio clock and how far into the song.
 function masterBus(audio, raw = false, when = 0, offset = 0) {
   const input = audio.createGain();
@@ -931,14 +933,14 @@ function masterBus(audio, raw = false, when = 0, offset = 0) {
   if (song.genre === 'Lo-fi') {
     // Warm, slightly dull tone with the deepest rumble removed, plus vinyl noise.
     const warm = audio.createBiquadFilter();
-    warm.type = 'lowpass'; warm.frequency.value = 4200; warm.Q.value = .5;
+    warm.type = 'lowpass'; warm.frequency.value = lofi.toneHz; warm.Q.value = .5;
     const clean = audio.createBiquadFilter();
     clean.type = 'highpass'; clean.frequency.value = 45;
     out = input.connect(warm).connect(clean);
     const crackle = audio.createBufferSource();
     crackle.buffer = crackleBuffer(audio, total());
     const level = audio.createGain();
-    level.gain.value = crackleLevel;
+    level.gain.value = lofi.crackle;
     crackle.connect(level).connect(input);
     crackle.start(when, offset);
     input.crackle = crackle;
