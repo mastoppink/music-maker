@@ -1,14 +1,17 @@
 ﻿const el = id => document.getElementById(id);
-const instruments = ['Piano','Gitar','Bass','Drum'];
+const instruments = ['Piano','Gitar','Bass','Drum','String'];
 let ctx, song, timer, start, position = 0, next = 0;
 const pick = items => items[Math.floor(Math.random()*items.length)];
 for (const name of instruments) {
   const label = document.createElement('label');
-  label.innerHTML = '<input type="checkbox" checked value="'+name+'"> '+name;
+  // String is new and optional, so existing songs keep their sound unless it is ticked.
+  label.innerHTML = '<input type="checkbox" '+(name==='String'?'':'checked')+' value="'+name+'"> '+name;
   el('choices').append(label);
 }
 
 // Measured offsets from concert pitch for the bundled nylon guitar recordings.
+// Measured offsets from concert pitch for the string-section recordings (cents).
+const stringCents = {"S:40:1": -4, "S:43:1": -3, "S:47:1": 0, "S:50:1": 4, "S:53:1": -1, "S:55:1": 3, "S:59:1": -1, "S:62:1": -2, "S:65:1": -2, "S:66:1": 0, "S:69:1": -4, "S:72:1": 3, "S:76:1": 3, "S:79:1": -1, "S:83:1": 8, "S:86:1": 3};
 const guitarCents = {"HighE:75:3": -23, "G:72:2": 1, "B:72:2": -24, "B:69:3": -22, "HighE:69:2": -14, "G:72:3": 9, "G:63:3": -6, "G:66:2": 3, "HighE:78:1": -26, "HighE:72:3": -15, "HighE:69:3": -14, "B:72:1": -27, "G:63:1": -9, "B:63:2": -10, "HighE:66:1": -7, "B:60:3": -1, "HighE:75:2": -24, "HighE:72:2": -16, "G:57:3": 7, "HighE:81:1": -31, "B:63:3": -1, "B:66:2": -19, "B:75:3": -19, "HighE:75:1": -25, "B:72:3": -22, "G:69:2": -3, "B:69:1": -32, "B:60:1": -7, "HighE:69:1": -15, "G:60:1": -6, "G:72:1": -4, "G:69:1": -2, "HighE:66:3": -7, "G:60:2": -5, "HighE:78:2": -24, "G:57:2": -1, "G:63:2": -7, "B:66:1": -22, "B:75:2": -25, "HighE:66:2": -7, "G:69:3": -2, "G:66:1": -1, "G:66:3": 13, "B:75:1": -24, "HighE:81:2": -22, "HighE:78:3": -19, "HighE:81:3": -20, "B:63:1": -9, "B:69:2": -26, "B:60:2": -5, "HighE:72:1": -16, "B:66:3": -14, "G:60:3": -5, "G:57:1": 1, "LowE:40:1": -7, "LowE:43:1": 6, "LowE:46:1": 0, "LowE:49:1": -5, "LowE:40:2": -7, "LowE:43:2": 4, "LowE:46:2": -4, "LowE:49:2": -6, "A:45:1": 3, "A:48:1": -2, "A:51:1": -7, "A:54:1": -5, "A:45:2": 3, "A:48:2": -1, "A:51:2": -4, "A:54:2": -4, "D:50:1": 0, "D:53:1": -9, "D:56:1": 1, "D:59:1": -5, "D:50:2": 0, "D:53:2": -5, "D:56:2": 1, "D:59:2": -7};
 const bank = {};
 async function loadBank(name) {
@@ -197,6 +200,10 @@ const styles = [
   { name:'Lari pagi',  genre:'Pop',     mood:'Ceria',  weight:1, feel:'rapat',   bpm:[108,116], guitar:'genjreng', piano:'pecah', drum:'pop',    bass:'delapan' },
   { name:'Balada',     genre:'Pop',     mood:'Tenang', weight:2, feel:'panjang', bpm:[66,72],   guitar:'petik',    piano:'blok',  drum:'balada', bass:'tahan' },
   { name:'Hangat',     genre:'Pop',     mood:'Tenang', weight:1, feel:'asli',    bpm:[76,82],   guitar:'genjreng', piano:'pecah', drum:'balada', bass:'dua' },
+  // Jazz: swing, walking bass, seventh chords on piano, ride cymbal.
+  { name:'Kafe malam', genre:'Jazz',    mood:'Tenang', weight:2, feel:'asli',    bpm:[76,86],   guitar:'petik', piano:'jazz', drum:'jazz', bass:'jalan' },
+  { name:'Swing',      genre:'Jazz',    mood:'Ceria',  weight:1, feel:'asli',    bpm:[110,122], guitar:'petik', piano:'jazz', drum:'jazz', bass:'jalan' },
+  { name:'Biru',       genre:'Jazz',    mood:'Melankolis', weight:1, feel:'panjang', bpm:[66,74], guitar:'petik', piano:'jazz', drum:'jazz', bass:'jalan' },
   // Melankolis: minor kits, slower, softer.
   { name:'Sendu',      genre:'Akustik', mood:'Melankolis', weight:2, feel:'panjang', bpm:[60,66], guitar:'petik', piano:'blok',  drum:'tipis' },
   { name:'Kenangan',   genre:'Akustik', mood:'Melankolis', weight:1, feel:'asli',    bpm:[68,74], guitar:'petik', piano:'pecah', drum:'lembut' },
@@ -315,7 +322,9 @@ function arrangeChorale(name) {
     Piano: has('Gitar') ? (vary('tukar') && pass % 2 ? [1,2] : [0]).concat(has('Bass') ? [] : [3]) : [0,1,2, ...(has('Bass') ? [] : [3])],
     Gitar: has('Piano') ? (vary('tukar') && pass % 2 ? [0] : [1,2]) : [0,1,2, ...(has('Bass') ? [] : [3])],
     Bass: [3],
-    Drum: []
+    Drum: [],
+    // Strings hold the two inner voices softly under everything else.
+    String: [1,2]
   }[name]);
   const events = [];
   let offset = 0;
@@ -326,7 +335,7 @@ function arrangeChorale(name) {
     for (const v of voicesAt(pass)) {
       for (const [start, len, midi] of piece.voices[v]) {
         const ending = lastPass && start + len >= piece.len;
-        const level = name === 'Gitar' ? (v === 0 && !has('Piano') ? .66 : .5) : name === 'Bass' ? .3 : v === 0 ? .42 : .24;
+        const level = name === 'String' ? .17 : name === 'Gitar' ? (v === 0 && !has('Piano') ? .66 : .5) : name === 'Bass' ? .3 : v === 0 ? .42 : .24;
         // Guitar tune uses the same recordings as its accompaniment, lifted to sit like the piano tune.
         const boost = name === 'Gitar' && v === 0 && has('Piano') ? gitarMelodyBoost : 1;
         events.push({ step: offset + start / 2, note: name === 'Bass' ? midi - 12 : midi,
@@ -355,7 +364,8 @@ function roles(bar) {
   // Bass and drums play only in sections with energy (not in the intro, the first
   // statement of the tune, or the thin pause).
   const ensemble = energy >= 1 || !melody;
-  return { melody, chords, bass: has('Bass') && ensemble, drums: has('Drum') && ensemble && !song.harmony[bar].rest };
+  return { melody, chords, bass: has('Bass') && ensemble, drums: has('Drum') && ensemble && !song.harmony[bar].rest,
+    strings: has('String') };
 }
 
 // Pattern choices per instrument, shown in each track row. "Buat ulang" steps
@@ -363,10 +373,11 @@ function roles(bar) {
 const partOptions = {
   Gitar: { petik:'Petik', genjreng:'Genjreng' },
   Piano: { blok:'Akor', pecah:'Akor dipecah', jazz:'Akor jazz', pulsa:'Akor berdenyut' },
-  Bass:  { tahan:'Panjang', dua:'Dua nada', delapan:'Berdenyut' },
-  Drum:  { lembut:'Lembut', tipis:'Tipis', jalan:'Berjalan', lofi:'Lo-fi', pop:'Pop', balada:'Balada' }
+  Bass:  { tahan:'Panjang', dua:'Dua nada', delapan:'Berdenyut', jalan:'Berjalan (jazz)' },
+  Drum:  { lembut:'Lembut', tipis:'Tipis', jalan:'Berjalan', lofi:'Lo-fi', pop:'Pop', balada:'Balada', jazz:'Jazz (ride)' },
+  String: { panjang:'Akor panjang', tinggi:'Nada tinggi' }
 };
-const variationCount = { Gitar:{ petik:3, genjreng:2 }, Piano:{ blok:3, pecah:3, jazz:2, pulsa:2 }, Bass:{ tahan:2, dua:2, delapan:2 }, Drum:{ lembut:2, tipis:2, jalan:2, lofi:2, pop:2, balada:2 } };
+const variationCount = { Gitar:{ petik:3, genjreng:2 }, Piano:{ blok:3, pecah:3, jazz:2, pulsa:2 }, Bass:{ tahan:2, dua:2, delapan:2, jalan:2 }, Drum:{ lembut:2, tipis:2, jalan:2, lofi:2, pop:2, balada:2, jazz:2 }, String:{ panjang:2, tinggi:1 } };
 
 function fingerpick(events, bar, root, final, lift, quiet, turn, noBass, v = 0) {
   const grip = gripTable()[root];
@@ -434,6 +445,7 @@ const trackTrim = { Bass:6, Drum:.45 };
 const gitarMelodyBoost = 4.5;
 const guitarPeak = .13;
 const strumLevel = .3;
+const stringPeak = 1.4;
 const arpLevel = .17;
 function arrange(name, variant = 0) {
   rand = rng(song.seed ^ hashName(name) ^ Math.imul(variant + 1, 2654435761));
@@ -528,6 +540,34 @@ function arrange(name, variant = 0) {
         if (part === 'genjreng') strum(events, bar, root, final, role.bass, v);
         else fingerpick(events, bar, root, final, lift, quiet, turn, role.bass, v);
       }
+    } else if (name === 'String' && role.strings) {
+      // Long chords that change with the harmony; a held chord carries over the bar line.
+      const prev = song.harmony[bar - 1];
+      const tied = prev && prev.root === root && keyAt(bar - 1) === keyAt(bar) && bar % 4 !== 0;
+      if (!tied) {
+        let bars = 1;
+        while (bar + bars < song.harmony.length && song.harmony[bar + bars].root === root
+          && keyAt(bar + bars) === keyAt(bar) && (bar + bars) % 4 !== 0) bars++;
+        const energy = song.harmony[bar].energy ?? 1;
+        // Swell slightly through each phrase in variation 2.
+        const swell = v === 1 ? .85 + .1 * (bar % 4) : 1;
+        const len = final ? 8 : bars * 8;
+        const voices = part === 'tinggi'
+          ? [[root + 7, .16], [root + 9, .13]]
+          : energy === 0 ? [[root - 7, .12], [root - 3, .14]]
+          : [[root - 7, .16], [root - 5, .14], [root - 3, .14], ...(energy === 2 ? [[root + 9, .1]] : [])];
+        for (const [x, level] of voices) add(0, pitch(x), len, level * swell, .02);
+      }
+    } else if (name === 'Bass' && role.bass && part === 'jalan' && !final) {
+      // Walking bass: four quarter notes, chord tones on beats 1 to 3, then a step that
+      // leads into the next bar's root (from below, or from above in variation 2).
+      const next = song.harmony[bar + 1]?.root ?? 0;
+      const tones = v === 0 ? [root, root + 2, root + 4] : [root, root + 4, root + 7];
+      tones.forEach((x, i) => add(i * 2, pitch(x) - 24, 1.9, i === 0 ? .32 : .29, .01));
+      // The lead-in sits next to the next root, in the same octave as that root.
+      const target = pitch(next) - 24, lead = pitch(next + (v === 0 ? -1 : 1)) - 24;
+      const shifted = lead - target > 6 ? lead - 12 : target - lead > 6 ? lead + 12 : lead;
+      events.push({ step: bar * 8 + 6, note: shifted, len: 1.9, level: .28 * (.94 + .06 * rand()), delay: .01 + rand() * .008, boost: 1, approach: true });
     } else if (name === 'Bass' && role.bass && part === 'delapan' && !final) {
       // Driving eighth notes on the root; variation 2 jumps up an octave near the end of the bar.
       for (let st = 0; st < 8; st++) {
@@ -540,6 +580,13 @@ function arrange(name, variant = 0) {
       if (two) add(4, pitch(root + 4) - 24, v === 1 ? 1.8 : 3.6, .29, .01);
       // Variation: a short octave note leading into the next bar.
       if (v === 1 && !final) add(6, pitch(root) - 12, 1.6, .26, .01);
+    } else if (name === 'Drum' && role.drums && part === 'jazz') {
+      // Swing ride: ding, ding-ga, ding, ding-ga (the "ga" lands late because of the swing),
+      // a feathered kick, and in variation 2 a soft cross-stick on beat four.
+      if (final) { add(0, 'ride', 1, .16); add(0, 'kick', .6, .22); continue; }
+      for (const [st, level] of [[0,.12],[2,.15],[3,.09],[4,.12],[6,.15],[7,.09]]) add(st, 'ride', 1, level);
+      add(0, 'kick', .5, .16); add(4, 'kick', .5, .13);
+      if (v === 1 && !cadence) add(6, 'rim', .3, .1);
     } else if (name === 'Drum' && role.drums && part === 'pop') {
       // Pop beat: kick on one and three, snare on two and four, eighth-note hats.
       add(0, 'kick', .65, final ? .3 : .38);
@@ -706,9 +753,10 @@ function voice(track,event,when,audio=ctx,remaining=total()-(when-start)) {
   const rate = drum ? 1 : 2 ** ((event.note - sample.midi) / 12);
   source.playbackRate.value = rate;
   if (track.name === 'Gitar') source.detune.value = -(guitarCents[sample.key] ?? 0);
+  if (track.name === 'String') source.detune.value = -(stringCents[sample.key] ?? 0);
   // Lo-fi: slow pitch drift between notes, like a worn tape.
   if (song.genre === 'Lo-fi' && !drum) source.detune.value += lofi.wobbleCents * Math.sin(2 * Math.PI * .3 * event.step * song.step);
-  const release = event.release ?? ({ Piano:.58, Gitar:.07, Bass:.16, Drum:.03 })[track.name];
+  const release = event.release ?? ({ Piano:.58, Gitar:.07, Bass:.16, Drum:.03, String:.9 })[track.name];
   const length = Math.min(remaining, sample.buffer.duration/rate,
     event.ring != null ? event.ring + release : drum ? sample.buffer.duration : event.len * song.step + release);
   if (length < .01) return;
@@ -717,16 +765,19 @@ function voice(track,event,when,audio=ctx,remaining=total()-(when-start)) {
   tone.type = 'lowpass';
   tone.Q.value = .35;
   tone.frequency.value = Math.min(audio.sampleRate*.45, 1900 + 13500 * Math.min(1,event.level));
-  if (track.name === 'Piano') source.connect(gain);
+  if (track.name === 'Piano' || track.name === 'String') source.connect(gain);
   else source.connect(tone).connect(gain);
   gain.connect(track.bus);
   // Recorded layers already carry most of the loudness change, so scale gain gently.
   // Guitar loudness follows the played level, not the recording's own volume.
   const shaped = track.name==='Gitar' ? event.level * guitarPeak / sample.peak : Math.sqrt(event.level*.4);
-  const peak = ({ Piano:.55, Gitar:.59, Bass:.68, Drum:.62 })[track.name] * shaped
+  const peak = ({ Piano:.55, Gitar:.59, Bass:.68, Drum:.62, String:stringPeak })[track.name] * shaped
     * (trackTrim[track.name] ?? 1) * (event.boost ?? 1);
-  gain.gain.setValueAtTime(peak,when);
-  gain.gain.setValueAtTime(peak,when+Math.max(.002,length-release));
+  // Strings swell in gently instead of starting at full strength.
+  const attack = track.name === 'String' ? Math.min(.4, length / 3) : 0;
+  if (attack) { gain.gain.setValueAtTime(0,when); gain.gain.linearRampToValueAtTime(peak,when+attack); }
+  else gain.gain.setValueAtTime(peak,when);
+  gain.gain.setValueAtTime(peak,when+Math.max(attack+.002,length-release));
   if (track.name === 'Piano') gain.gain.linearRampToValueAtTime(0,when+length);
   else gain.gain.exponentialRampToValueAtTime(.0001,when+length);
   if (audio === ctx && track.sources) track.sources.push(source);
@@ -755,6 +806,8 @@ function onset(event) {
   const beat = event.step;
   let feel = 0;
   if (song.genre === 'Lo-fi' && beat % 2) feel = song.step * .12;
+  // Jazz: full triplet swing, the off-beat eighth lands two thirds into the beat.
+  if (song.genre === 'Jazz' && beat % 2) feel = song.step * .3;
   if (song.genre === 'Akustik' && (song.mood === 'Tenang' || song.mood === 'Melankolis')) {
     const phase = beat % 32 / 32;
     feel = song.step * (.09 * Math.sin(2*Math.PI*phase) + (beat % 2 ? .045 : 0));
@@ -848,7 +901,7 @@ function newSong({genre,mood,duration,names,seed,source='kit',onlyKit=null,piano
     song.step=30/(lo+r2()*(hi-lo));
     song.ending=force.ending ?? pick2(['kadens','kit']);
     // Each instrument starts with the style's pattern; the listener can change any of them.
-    song.parts={Gitar:song.style.guitar, Piano:song.style.piano, Drum:song.style.drum, Bass:song.style.bass ?? 'tahan', ...force.parts};
+    song.parts={Gitar:song.style.guitar, Piano:song.style.piano, Drum:song.style.drum, Bass:song.style.bass ?? 'tahan', String:song.style.strings ?? 'panjang', ...force.parts};
     song.ritard=force.ritard ?? r2()<.5;
     // Minor keys chosen so the A-minor guitar shapes need a capo of 0 to 5.
     if (song.minor) song.key=pick2([57,59,60,62]);
@@ -906,8 +959,8 @@ async function songFromProject(p) {
 }
 // ---- MIDI export (Standard MIDI File, one track per instrument) ----
 // Timing follows the song as played (swing, slowing down), at 480 ticks per quarter note.
-const midiSetup = { Piano:{ channel:0, program:0 }, Gitar:{ channel:1, program:24 }, Bass:{ channel:2, program:32 }, Drum:{ channel:9 } };
-const midiDrums = { kick:36, snare:38, rim:37, hat:82 };
+const midiSetup = { Piano:{ channel:0, program:0 }, Gitar:{ channel:1, program:24 }, Bass:{ channel:2, program:32 }, Drum:{ channel:9 }, String:{ channel:3, program:48 } };
+const midiDrums = { kick:36, snare:38, rim:37, hat:82, ride:51 };
 function midiFile() {
   const ppq = 480, tick = seconds => Math.max(0, Math.round(seconds / song.step * ppq / 2));
   const varLen = n => { const out = [n & 127]; while ((n >>= 7)) out.unshift((n & 127) | 128); return out; };
@@ -1084,7 +1137,7 @@ const ceilingCurve = Float32Array.from({length:8193},(_,i)=>{
 });
 // ---- Mix: room echo, left/right placement and final loudness ----
 // pan: -1 left .. 1 right. room: how much of the instrument is sent into the room echo.
-const placement = { Piano:{pan:-.22, room:.24}, Gitar:{pan:.26, room:.2}, Bass:{pan:0, room:.04}, Drum:{pan:.04, room:.12} };
+const placement = { Piano:{pan:-.22, room:.24}, Gitar:{pan:.26, room:.2}, Bass:{pan:0, room:.04}, Drum:{pan:.04, room:.12}, String:{pan:.08, room:.32} };
 const roomLevel = .8;
 // YouTube plays music at about -14 LUFS; quieter songs are not turned up, so aim there.
 const targetLoudness = -14;

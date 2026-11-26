@@ -1,6 +1,6 @@
 # Music Maker
 
-Generator musik instrumental. Pilih **mood** dan **genre**, lalu atur atau buat ulang **setiap instrumen** (piano, gitar, bass, drum). Hasilnya berupa file WAV yang siap diunggah ke YouTube.
+Generator musik instrumental. Pilih **mood** dan **genre**, lalu atur atau buat ulang **setiap instrumen** (piano, gitar, bass, drum, dan string). Hasilnya berupa file WAV yang siap diunggah ke YouTube.
 
 Tersedia dua cara pakai:
 
@@ -22,17 +22,21 @@ Keduanya memakai mesin musik yang sama (`studio.js`), jadi pengaturan yang sama 
 6. Tekan **Unduh MIDI** untuk menyimpan not lagu (satu jalur per instrumen) yang bisa dibuka di program musik seperti FL Studio, Ableton, atau GarageBand.
 7. Tekan **Simpan proyek** untuk menyimpan pengaturan lagu (`.json`). Dengan **Buka proyek**, lagu itu bisa dibuat persis sama lagi, termasuk pola, variasi, volume, dan instrumen yang dibisukan. Format file proyeknya sama dengan CLI, jadi proyek dari aplikasi bisa dipakai di CLI (`--dari`) dan sebaliknya.
 
+### Instrumen
+
+Piano, Gitar, Bass, dan Drum tercentang secara bawaan. **String** (biola, viola, dan cello yang menahan akor dengan lembut) bisa ditambahkan dengan mencentangnya, atau di CLI dengan `--instrumen Piano,Gitar,Bass,Drum,String`.
+
 ### Pilihan
 
 | Pilihan | Nilai |
 |---|---|
 | Mood | Tenang, Ceria, Melankolis |
-| Genre | Akustik, Lo-fi, Pop |
+| Genre | Akustik, Lo-fi, Pop, Jazz |
 | Sumber | **Kit orisinal**: melodi tulisan tangan · **Klasik**: korale J.S. Bach (domain publik) |
 | Melodi | Gantian piano & gitar, atau Piano saja |
 | Durasi | 30 detik, 1, 2, 3, 5 menit |
 
-Gaya lagu, bentuk lagu (pembuka, melodi utama, bagian tengah, jeda, penutup), dan pola per instrumen saat ini berlaku penuh untuk **Kit orisinal** untuk semua genre (**Akustik**, **Lo-fi**, **Pop**) dan semua mood (**Tenang**, **Ceria**, **Melankolis**). Melankolis memakai melodi bernada minor yang ditulis khusus. Pop punya drum pop atau balada, bass berdenyut, dan akor piano berdenyut. Lo-fi punya ketukan diayun, akor piano jazz, drum boom-bap, suara hangat dengan goyang kaset, dan desis piringan hitam. 
+Gaya lagu, bentuk lagu (pembuka, melodi utama, bagian tengah, jeda, penutup), dan pola per instrumen saat ini berlaku penuh untuk **Kit orisinal** untuk semua genre (**Akustik**, **Lo-fi**, **Pop**, **Jazz**) dan semua mood (**Tenang**, **Ceria**, **Melankolis**). Melankolis memakai melodi bernada minor yang ditulis khusus. Jazz punya ketukan diayun, walking bass, akor piano jazz, dan pola cymbal ride. Pop punya drum pop atau balada, bass berdenyut, dan akor piano berdenyut. Lo-fi punya ketukan diayun, akor piano jazz, drum boom-bap, suara hangat dengan goyang kaset, dan desis piringan hitam. 
 
 ## CLI
 
@@ -82,10 +86,10 @@ Rangkaian 60 menit butuh beberapa menit untuk dibuat, dan WAV-nya sekitar 600 MB
 | Opsi | Arti | Bawaan |
 |---|---|---|
 | `--mood` | Tenang, Ceria, Melankolis | Tenang |
-| `--genre` | Akustik, Lo-fi, Pop | Akustik |
+| `--genre` | Akustik, Lo-fi, Pop, Jazz | Akustik |
 | `--sumber` | `kit` atau `klasik` | kit |
 | `--durasi` | panjang lagu dalam detik (10–900) | 60 |
-| `--instrumen` | daftar instrumen, dipisah koma | Piano,Gitar,Bass,Drum |
+| `--instrumen` | daftar instrumen, dipisah koma (Piano, Gitar, Bass, Drum, String) | Piano,Gitar,Bass,Drum |
 | `--melodi` | `gantian` atau `piano` | gantian |
 | `--seed` | angka; seed yang sama memberi lagu yang sama | acak |
 | `--versi` | jumlah lagu, dengan seed berurutan | 1 |

@@ -17,10 +17,10 @@ Pemakaian:
 
 Opsi untuk "buat":
   --mood <Tenang|Ceria|Melankolis>        Bawaan: Tenang
-  --genre <Akustik|Lo-fi|Pop>             Bawaan: Akustik
+  --genre <Akustik|Lo-fi|Pop|Jazz>        Bawaan: Akustik
   --sumber <kit|klasik>                   Kit orisinal atau Klasik (Bach). Bawaan: kit
   --durasi <detik>                        Misalnya 60, 180, 300. Bawaan: 60
-  --instrumen <daftar>                    Bawaan: Piano,Gitar,Bass,Drum
+  --instrumen <daftar>                    Piano, Gitar, Bass, Drum, String. Bawaan: Piano,Gitar,Bass,Drum
   --melodi <gantian|piano>                Melodi gantian piano & gitar, atau piano saja. Bawaan: gantian
   --seed <angka>                          Seed yang sama memberi lagu yang sama. Bawaan: acak
   --versi <angka>                         Buat beberapa versi dengan seed berurutan. Bawaan: 1
@@ -99,7 +99,7 @@ function settingsFrom(opts) {
     bisu: opts.bisu ? list(opts.bisu) : base.bisu ?? []
   };
   if (!['Tenang','Ceria','Melankolis'].includes(s.mood)) throw new Error('--mood harus Tenang, Ceria, atau Melankolis.');
-  if (!['Akustik','Lo-fi','Pop'].includes(s.genre)) throw new Error('--genre harus Akustik, Lo-fi, atau Pop.');
+  if (!['Akustik','Lo-fi','Pop','Jazz'].includes(s.genre)) throw new Error('--genre harus Akustik, Lo-fi, Pop, atau Jazz.');
   if (!['kit','klasik'].includes(s.sumber)) throw new Error('--sumber harus kit atau klasik.');
   if (!['gantian','piano'].includes(s.melodi)) throw new Error('--melodi harus gantian atau piano.');
   if (!(s.durasi >= 10 && s.durasi <= 900)) throw new Error('--durasi harus antara 10 dan 900 detik.');

@@ -53,6 +53,9 @@ Cara kerja dengan pengguna: pengguna tidak membaca not dan tidak menilai nada. S
 - **Proyek** (`projectOf`, `songFromProject`, tombol Simpan/Buka proyek): format `.json` yang sama dengan CLI. CLI memakai `songFromProject` yang sama. Uji bolak-balik: simpan, buka di halaman baru, lagu identik; WAV aplikasi dan CLI dari proyek yang sama selisih paling besar 2 LSB.
   - Perbaikan bug saat uji ini: memaksa gaya dulu menggeser urutan acak (tempo, penutup). Sekarang `pickStyle` selalu diambil. Lagu lama yang dibuat dengan `--gaya`/`force.style` bisa sedikit berbeda kalau dibuat ulang.
 - **Siap unggah**: MIDI (`midiFile`, aplikasi dan CLI `--midi`; format 1, 480 tick, waktu mengikuti swing dan ritardando), stem (CLI `--stem`; memakai gain dan kurva limiter mix lengkap sehingga jumlah stem = mix, selisih −73 dB; tanpa desis vinyl), video (CLI `--video`, ffmpeg, 1920×1080, 2 fps gambar diam, AAC 320k; juga untuk rangkaian).
+- **Jazz** (gaya Kafe malam untuk Tenang, Swing untuk Ceria, Biru untuk Melankolis): swing triplet (`onset`, +0,3 langkah), bass `jalan` (walking: nada akor di ketukan 1–3, nada pengantar ke root berikutnya di ketukan 4, ditandai `approach`), piano `jazz`, drum `jazz` (pola ride, kick lembut, cross-stick di variasi 2). Ride memakai cymbal gantung VSCO dipukul stik logam (tidak ada ride drum set CC0 di koleksi ini); perlu penilaian dengar.
+- **String** (instrumen baru, tidak dicentang secara bawaan): seksi cello/viola/biola VSCO 2 CE, 16 rekaman, nada diukur per file (`stringCents`). Pola `panjang` (akor ditahan mengikuti harmoni, disambung bila akor sama; energi 0: cello+viola pelan, energi 2: biola tinggi ikut) dan `tinggi`. Serangan lembut 0,4 detik, lepas 0,9 detik. Di Klasik memegang alto dan tenor. Level sekitar 7–8 dB di bawah melodi.
+- Uji: 162 lagu semua genre dan mood dengan String, 113.033 nada iringan + 3.146 nada pengantar walking bass, 0 di luar akor.
 - **Rangkaian** (CLI `rangkaian`): lagu berseed berurutan, di-master satu per satu, disambung dengan tumpang-tindih `--jeda` (bawaan 2 detik), ditulis langsung ke disk. Juga menyimpan daftar bab YouTube (.txt) dan .json. Hanya diuji singkat (1 menit); pengguna minta rangkaian 60 menit tidak dicoba dulu.
 - **Mix dan mastering**:
   - Gema ruangan buatan (`roomImpulse`, sekitar 2 detik, ber-seed sehingga hasilnya selalu sama), dikirim per instrumen (`placement.room`).
@@ -87,6 +90,7 @@ Cara kerja dengan pengguna: pengguna tidak membaca not dan tidak menilai nada. S
 
 ## Berikutnya (urut prioritas)
 
-1. **Dengar Pop dan Melankolis**, lalu perbaiki sesuai pilihan pengguna.
-2. **Coba rangkaian 60 menit** di komputer pengguna (belum dicoba atas permintaan pengguna).
-3. Ide selanjutnya: lebih banyak kit melodi supaya rangkaian panjang tidak mengulang melodi yang sama; gambar sampul otomatis untuk video.
+1. **Dengar Jazz dan String** (uji buta String: Lagu 1 A = dengan string, Lagu 2 B = dengan string), plus Pop dan Melankolis yang belum dinilai.
+2. Kalau cymbal jazz tidak cocok: cari rekaman ride CC0 lain, atau jazz tanpa drum secara bawaan.
+3. **Coba rangkaian 60 menit** di komputer pengguna.
+4. Ide: lebih banyak kit melodi; gambar sampul otomatis untuk video.
