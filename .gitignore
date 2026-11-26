@@ -1,0 +1,6 @@
+# Most listening tests stay local; only the current references are versioned.
+contoh/*.wav
+!contoh/kit-*.wav
+!contoh/klasik-*.wav
+!contoh/gitar-fingerstyle.wav
+!contoh/piano-delapan-birama.wav
