@@ -447,7 +447,8 @@ function strum(events, bar, root, final, noBass, v = 0) {
 // Mix balance measured per bar (RMS): the tune must stay loudest, drums sit lowest.
 // Without these the drums buried the guitar melody once they came in.
 const trackTrim = { Bass:6, Drum:.45 };
-const gitarMelodyBoost = 3.8;
+const gitarMelodyBoost = 4.5;
+const gitarMelodyBoostJazz = 3.8;
 const pianoUnderGuitar = 1.8;
 const guitarPeak = .13;
 const strumLevel = .3;
@@ -534,10 +535,11 @@ function arrange(name, variant = 0) {
       }
       // While the guitar carries the tune, the piano accompaniment was 12-17 dB under it
       // (against 11 dB the other way round), so the guitar seemed to play alone. Lift it.
-      if (role.melody === 'Gitar') for (let i = first; i < events.length; i++) events[i].boost = pianoUnderGuitar;
+      // A blind test preferred this in Jazz but not in Akustik, so it applies to Jazz only.
+      if (role.melody === 'Gitar' && song.genre === 'Jazz') for (let i = first; i < events.length; i++) events[i].boost = pianoUnderGuitar;
     } else if (name === 'Gitar') {
       if (role.melody === 'Gitar') {
-        playMelody(0, .5, gitarMelodyBoost);
+        playMelody(0, .5, song.genre === 'Jazz' ? gitarMelodyBoostJazz : gitarMelodyBoost);
         if (role.chords !== 'Gitar') {
           // Thumb notes under the tune, as a fingerstyle player would, so the guitar
           // does not turn into a bare single-note instrument.
