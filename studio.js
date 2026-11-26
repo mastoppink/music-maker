@@ -1393,6 +1393,9 @@ function crackleBuffer(audio, seconds) {
 }
 // Strength of the Lo-fi wear. Softened after listening ("efek rusaknya perlu diperhalus
 // supaya tetap enak didengarkan lama"): less noise, fewer crackles, less wobble, brighter tone.
+// Studio mixing on/off (channel EQ and compression, mix glue). Measured and A/B tested.
+const studioMix = true;
+const glue = [-24, 1.6, .03, .3];
 const lofi = { crackle:.28, popsPerSecond:2, popSize:.09, wobbleCents:3, toneHz:6500 };
 // when/offset: where the crackle starts in the audio clock and how far into the song.
 function masterBus(audio, raw = false, when = 0, offset = 0) {
@@ -1405,6 +1408,8 @@ function masterBus(audio, raw = false, when = 0, offset = 0) {
   room.connect(wet).connect(input);
   input.room = room;
   let out = input;
+  // Gentle "glue" compression on the whole mix so it sounds like one recording.
+  if (studioMix) out = out.connect(compressor(audio, glue, 12));
   if (song.genre === 'Lo-fi') {
     // Warm, slightly dull tone with the deepest rumble removed, plus vinyl noise.
     const warm = audio.createBiquadFilter();
@@ -1431,16 +1436,46 @@ function masterBus(audio, raw = false, when = 0, offset = 0) {
   }
   return input;
 }
+// Studio-style channel processing: each instrument gets its own room in the spectrum
+// (EQ) and the bass and drums are compressed so they sit steadily under everything.
+//   eq: [type, frequency Hz, gain dB, Q] · comp: [threshold dB, ratio, attack s, release s]
+//   trim: dB to keep the instrument at the same loudness as before processing.
+const channelStrip = {
+  Piano:  { eq:[['highpass',90,0,.7],['peaking',300,-2.5,1],['highshelf',8000,1.5,.7]], trim:0 },
+  Gitar:  { eq:[['highpass',110,0,.7],['peaking',250,-3,1],['peaking',3000,2,.8]], trim:-.8 },
+  Bass:   { eq:[['highpass',35,0,.7],['peaking',90,2,.9],['peaking',250,-2,1]], comp:[-36,3,.01,.15], trim:-16.7 },
+  Drum:   { eq:[['highpass',40,0,.7]], comp:[-30,3,.02,.12], trim:-12 },
+  String: { eq:[['highpass',120,0,.7],['peaking',350,-2,1],['highshelf',7000,-2,.7]], trim:-1.1 }
+};
+function compressor(audio, [threshold, ratio, attack, release], knee = 6) {
+  const c = audio.createDynamicsCompressor();
+  c.threshold.value = threshold; c.ratio.value = ratio; c.knee.value = knee;
+  c.attack.value = attack; c.release.value = release;
+  return c;
+}
 function trackBus(audio, track, master) {
   const bus = audio.createGain();
   bus.gain.value = track.muted ? 0 : track.volume;
   const spot = placement[track.name] ?? { pan:0, room:.15 };
+  let out = bus;
+  const strip = studioMix ? channelStrip[track.name] : null;
+  if (strip) {
+    for (const [type, frequency, gain, q] of strip.eq) {
+      const f = audio.createBiquadFilter();
+      f.type = type; f.frequency.value = frequency; f.gain.value = gain; f.Q.value = q;
+      out = out.connect(f);
+    }
+    if (strip.comp) out = out.connect(compressor(audio, strip.comp));
+    const trim = audio.createGain();
+    trim.gain.value = 10 ** ((strip.trim ?? 0) / 20);
+    out = out.connect(trim);
+  }
   const pan = audio.createStereoPanner();
   pan.pan.value = spot.pan;
   const send = audio.createGain();
   send.gain.value = spot.room;
-  bus.connect(pan).connect(master);
-  bus.connect(send).connect(master.room);
+  out.connect(pan).connect(master);
+  out.connect(send).connect(master.room);
   return bus;
 }
 // Integrated loudness in LUFS (ITU-R BS.1770: K-weighting, 400 ms blocks, gating).
