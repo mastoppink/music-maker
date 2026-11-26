@@ -128,14 +128,21 @@ const kits = [
 // tune: melody rhythm, guitar and piano accompaniment, drums and tempo.
 //   feel: 'asli' as written, 'panjang' only the strong-beat notes held long,
 //         'rapat' long notes split with a step to the next note.
+// weight: how often a style is picked. The listener liked Santai most and found
+// Jalan pagi least fitting for a calm song, so the fast styles moved to Ceria.
 const styles = [
-  { name:'Santai',     feel:'panjang', bpm:[62,68], guitar:'petik',    piano:'blok',  drum:'tipis' },
-  { name:'Mengalir',   feel:'rapat',   bpm:[74,80], guitar:'petik',    piano:'pecah', drum:'lembut' },
-  { name:'Jalan pagi', feel:'asli',    bpm:[90,98], guitar:'genjreng', piano:'pecah', drum:'jalan' },
-  { name:'Teduh',      feel:'panjang', bpm:[70,76], guitar:'genjreng', piano:'blok',  drum:'lembut' },
-  { name:'Ringan',     feel:'rapat',   bpm:[84,90], guitar:'genjreng', piano:'blok',  drum:'jalan' },
-  { name:'Sederhana',  feel:'asli',    bpm:[74,82], guitar:'petik',    piano:'blok',  drum:'lembut' }
+  { name:'Santai',     mood:'Tenang', weight:3, feel:'panjang', bpm:[62,68], guitar:'petik',    piano:'blok',  drum:'tipis' },
+  { name:'Mengalir',   mood:'Tenang', weight:1, feel:'rapat',   bpm:[74,80], guitar:'petik',    piano:'pecah', drum:'lembut' },
+  { name:'Teduh',      mood:'Tenang', weight:1, feel:'panjang', bpm:[70,76], guitar:'genjreng', piano:'blok',  drum:'lembut' },
+  { name:'Sederhana',  mood:'Tenang', weight:1, feel:'asli',    bpm:[74,82], guitar:'petik',    piano:'blok',  drum:'lembut' },
+  { name:'Jalan pagi', mood:'Ceria',  weight:1, feel:'asli',    bpm:[90,98], guitar:'genjreng', piano:'pecah', drum:'jalan' },
+  { name:'Ringan',     mood:'Ceria',  weight:1, feel:'rapat',   bpm:[84,90], guitar:'genjreng', piano:'blok',  drum:'jalan' }
 ];
+function pickStyle(mood, r) {
+  const pool = styles.filter(s => s.mood === mood);
+  let x = r() * pool.reduce((sum, s) => sum + s.weight, 0);
+  return pool.find(s => (x -= s.weight) < 0) ?? pool[0];
+}
 function applyFeel(notes, feel) {
   if (feel === 'panjang') {
     // Strong-beat notes are always chord tones, so keeping only them stays in tune.
@@ -591,11 +598,12 @@ function newSong({genre,mood,duration,names,seed,source='kit',onlyKit=null,piano
     for (const track of song.tracks) track.events=pattern(track.name);
     return song;
   }
-  const acoustic=genre==='Akustik' && mood==='Tenang';
+  // Kit songs cover Akustik in the moods that have styles (Tenang, Ceria).
+  const acoustic=genre==='Akustik' && styles.some(s=>s.mood===mood);
   if (acoustic) {
     // Character of this song; separate random stream so kits and key stay as before.
     const r2=rng(seed^0x51ed), pick2=list=>list[Math.floor(r2()*list.length)];
-    song.style=styles.find(s=>s.name===force.style) ?? pick2(styles);
+    song.style=styles.find(s=>s.name===force.style) ?? pickStyle(mood,r2);
     const [lo,hi]=song.style.bpm;
     song.step=30/(lo+r2()*(hi-lo));
     song.ending=force.ending ?? pick2(['kadens','kit']);

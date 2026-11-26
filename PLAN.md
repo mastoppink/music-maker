@@ -2,35 +2,57 @@
 
 ## Tujuan
 
-Generator musik instrumental untuk dipakai sendiri, dan hasil musiknya bisa dijual. Pengguna tidak membaca not dan tidak menilai nada, jadi semua keputusan musikal di tingkat nada datang dari bahan yang sudah ditulis. Pengguna cukup memilih versi yang disukai (A/B).
+Aplikasi untuk membuat musik instrumental dengan memilih **mood** dan **genre**. Setelah lagu jadi, pengguna bisa mengendalikan **setiap instrumen**: membuat ulang bagiannya saja, atau mengatur cara instrumen itu bermain. **Tujuan akhirnya: hasilnya dijual (dimonetisasi) di YouTube.**
+
+Cara kerja dengan pengguna: pengguna tidak membaca not dan tidak menilai nada. Semua keputusan nada datang dari bahan tulisan tangan (kit) dan aturan yang diuji otomatis. Pengguna menilai hanya dengan mendengar: memilih A atau B, atau menyebut "detik ke-X terasa aneh". Penyebabnya diukur lalu diperbaiki, dan hasilnya dibandingkan sebelum dan sesudah.
+
+### Syarat karena hasilnya dijual
+
+- **Semua rekaman suara wajib bebas dipakai untuk komersial** (CC0 atau setara), dengan sumber tercatat di `samples/RECORDINGS.txt`.
+- **Komposisi harus orisinal atau domain publik.** Kit ditulis sendiri. Korale Bach sudah domain publik.
+- **Kualitas siap unggah**: WAV 44,1 kHz, volume akhir setara musik YouTube lain, tanpa klik dan tanpa nada terpotong.
+- **Durasi yang dibutuhkan YouTube**: lagu 2–5 menit, dan rangkaian panjang (30–60 menit) untuk video "musik santai".
+- **Video**: YouTube butuh file video, minimal gambar diam ditambah audio.
+- **Kebijakan monetisasi YouTube**: konten yang diproduksi massal atau berulang bisa ditolak untuk monetisasi ("inauthentic/repetitive content"). Setiap lagu harus cukup berbeda, dan video perlu sentuhan pribadi (judul, gambar, susunan). Aturan persisnya perlu dicek lagi menjelang unggah, karena YouTube sering mengubahnya.
 
 ## Keadaan sekarang (2026-11-26)
 
+- **Mood dan genre**:
+  - Akustik · Tenang dan Akustik · Ceria memakai mesin kit dan gaya (lengkap).
+  - Mood Melankolis dan genre Lo-fi dan Pop masih memakai mesin lama yang sederhana.
 - **Sumber lagu** (pilihan "Sumber" di UI):
-  - *Kit orisinal*: dua belas kit empat birama tulisan tangan di `studio.js` (`kits`). Ada delapan kit utama ("a") dan empat kit kontras ("b"). Kit baru: Embun, Kabut, Senja, Pelangi (a), Hujan, Angin (b). `planSong` merangkai kit utama, lalu bagian kontras, lalu kit utama lagi, dan menutup dengan kadens V–I. Berlaku untuk Akustik · Tenang.
-  - *Klasik (Bach)*: 24 korale empat suara bernada mayor di `classics.js`, diambil dari JSB Chorales dataset. Komposisinya bebas hak cipta. `arrangeChorale` membagi suara: sopran untuk melodi, alto dan tenor untuk iringan, bas untuk bass.
-- **Peran**: bass memegang nada dasar. Piano dan gitar bergantian membawa melodi per frasa. Bass dan drum masuk setelah frasa pertama.
-- **Keseimbangan volume** (`trackTrim`, `gitarMelodyBoost`): diukur per birama. Sebelumnya drum menenggelamkan melodi gitar saat masuk (pengguna: "semuanya rusak saat drum masuk"). Sekarang melodi paling keras, drum paling pelan.
-- **Petikan gitar**: dulu gitar hampir selalu memakai rekaman petikan paling lembut (pengguna: "seperti gripnya kurang kuat"). Sekarang hanya lapisan sedang dan kuat, dan volumenya dinormalkan per rekaman (`guitarPeak`). Senar LowE/A/D hanya punya lapisan 1–2, jadi diambil yang terkuat.
-- **Ekor nada** (pengguna: "kayak dipaksa mati"): gitar memudar 0,3 detik saat ganti akor (dulu 0,045), piano memakai pedal sampai ganti akor, bass menyambung ke nada berikutnya, dan lagu punya ekor 3 detik (`tail`) setelah ketukan terakhir.
-- **Melodi di gitar** (pengguna: "mulai detik 15 seperti orang belajar main gitar"): melodi dulu dimainkan tinggi di senar G (sampai fret 17) dan melompat antar senar. Sekarang nada melodi diarahkan ke fret rendah di senar atas. Pengguna suka keduanya, jadi ada pilihan "Melodi" di UI: "Gantian piano & gitar" (bawaan) atau "Piano saja" (`pianoMelody`).
-- **Karakter gitar tetap sama** (pengguna: "gitar di detik 13 merusak suasana, tidak nyambung karakter suaranya"): melodi gitar dulu memakai rekaman paling keras ×6, kini memakai lapisan yang sama dengan iringan (2) dan ditemani nada jempol di senar D/G. Saat bass masuk, senar bawah gitar tidak lagi dilepas, hanya dipelankan.
-- **A/B**: setiap "Buat musik" menghasilkan dua versi (seed berurutan). Seed tampil di pesan status.
-- **Sampel**: Meta Piano (4 lapisan dinamika), gitar nilon Meta, kontrabas pizzicato VSCO 2 CE, kick lama, snare lembut dan shaker VSCO. Semuanya CC0, lihat `samples/RECORDINGS.txt`.
+  - *Kit orisinal* (pilihan pengguna): 12 kit empat birama di `studio.js` (`kits`), terdiri dari 8 kit utama ("a") dan 4 kit kontras ("b"). `planSong` merangkai kit utama, bagian kontras, lalu kit utama lagi, dan menutup lagu.
+  - *Klasik (Bach)*: 24 korale di `classics.js`. Pengguna lebih memilih Kit, jadi kandidat dihapus.
+- **Gaya lagu** (`styles`): setiap lagu memilih satu gaya yang menentukan irama melodi (`applyFeel`: asli / panjang / rapat), gitar (petik / genjreng), piano (blok / pecah), drum (lembut / tipis / jalan), dan tempo. Penutupnya dua macam (kadens V–I, atau bar kit lalu tonika), dengan atau tanpa melambat. Tempo gaya dipertahankan, jadi panjang lagu bisa bergeser beberapa detik.
+  - Tenang: Santai (bobot 3, favorit pengguna), Mengalir, Teduh, Sederhana.
+  - Ceria: Jalan pagi, Ringan. Jalan pagi paling tidak disukai untuk lagu tenang, jadi dipindah ke Ceria.
+- **Melodi** (pilihan di UI): "Gantian piano & gitar" atau "Piano saja". Pengguna suka keduanya.
+- **Kontrol per instrumen**: volume, bisukan, "Buat ulang" (pola baru untuk instrumen itu saja).
+- **A/B**: setiap "Buat musik" menghasilkan dua versi.
+- **Ekspor**: WAV stereo 44,1 kHz dari seluruh mix.
+- **Uji otomatis**: 600 lagu per mood, 0 nada melodi di ketukan kuat yang bukan nada akor.
 
-## Gaya lagu (`styles`)
+### Perbaikan suara yang sudah lolos dengar
 
-Setiap seed memilih satu gaya: Santai, Mengalir, Jalan pagi, Teduh, Ringan, Sederhana. Gaya menentukan irama melodi (`applyFeel`: asli / panjang / rapat), iringan gitar (petik / genjreng), iringan piano (blok / pecah), pola drum (lembut / tipis / jalan) dan rentang tempo. Penutup dipilih terpisah: kadens V–I atau bar ketiga kit lalu tonika, dengan atau tanpa melambat (ritardando). Tempo gaya dipertahankan; panjang lagu yang menyesuaikan (± beberapa detik). Uji otomatis: 600 lagu, 0 pelanggaran aturan nada akor.
+- Keseimbangan volume (`trackTrim`, `gitarMelodyBoost`). Dulu drum menenggelamkan melodi ("semuanya rusak saat drum masuk").
+- Gitar memakai petikan sedang dan kuat, dengan volume dinormalkan per rekaman (`guitarPeak`). Dulu terdengar "gripnya kurang kuat".
+- Ekor nada: gitar memudar 0,3 detik, piano memakai pedal, bass menyambung, dan ada ekor 3 detik di akhir lagu. Dulu nada "dipaksa mati".
+- Melodi gitar di fret rendah, senar atas. Dulu terdengar "seperti orang belajar main gitar".
+- Karakter gitar tetap satu: melodi memakai lapisan yang sama dengan iringan, ditambah nada jempol, dan senar bawah tidak dilepas saat bass masuk. Dulu "tidak nyambung karakter suaranya".
 
-## Riwayat yang sudah ditolak lewat dengar
+### Yang ditolak lewat dengar
 
 - Nada antar bass, dan bass yang masuk di ketukan pertama, pada etude piano lama.
-- Melodi yang disusun otomatis dengan aturan (rombakan pertama). Kini diganti kit tulis tangan.
+- Melodi yang disusun otomatis dengan aturan. Diganti kit tulis tangan.
+- Pemilihan 12 kit lewat A/B: semuanya terdengar mirip karena hanya melodi yang berbeda. Diganti gaya lagu.
 
-## Berikutnya
+## Berikutnya (urut prioritas)
 
-1. (Dibatalkan) Pemilihan 12 kit lewat A/B: pengguna mendengar semuanya mirip, karena hanya melodi yang berbeda. Diganti gaya lagu (lihat Gaya).
-   Catatan lama: pengguna sudah memilih Kit orisinal daripada Klasik. Sekarang menyaring 12 kit lewat halaman A/B (12 pilihan, dua putaran). Kit dengan 0 kemenangan dibuang. `newSong({onlyKit})` memutar satu kit saja untuk audisi.
-2. Tambah kit baru untuk mood lain (Ceria, Melankolis) dengan format yang sama.
-3. Ekspor MIDI per track, supaya hasil bisa dipoles di DAW.
-4. Simpan dan buka proyek (seed, sumber, instrumen, volume).
+1. **Ganti kick drum.** Kick masih dari koleksi lama (Tonejs `acoustic-kit`) yang lisensinya tidak jelas. Ganti dengan kick CC0 sebelum ada lagu yang diunggah. Ini wajib untuk dijual.
+2. **Kontrol per instrumen yang lebih lengkap.** Di setiap baris instrumen ada pilihan cara main: gitar petik/genjreng, piano blok/pecah, drum lembut/tipis/jalan. Tersedia juga "Buat ulang" per instrumen. Mengubah satu instrumen tidak mengubah yang lain.
+3. **Durasi untuk YouTube.** Pilihan 3 dan 5 menit (lebih banyak bagian dan variasi), dan "rangkaian" 30–60 menit dari beberapa lagu berbeda dengan jeda halus.
+4. **Mood Melankolis.** Kit bernada minor dengan format yang sama, plus gaya yang cocok.
+5. **Genre Lo-fi dan Pop** di mesin kit. Gaya baru (misalnya drum lo-fi yang diayun, suara lebih hangat) memakai kit yang sama.
+6. **Simpan dan buka proyek** (seed, mood, genre, gaya, instrumen, pengaturan tiap instrumen, volume), supaya lagu bisa dibuat persis sama lagi.
+7. **Siap unggah**: volume akhir standar YouTube (sekitar −14 LUFS), ekspor per instrumen (stem), ekspor MIDI, dan video sederhana (gambar + audio).
+8. **Hapus sumber Klasik (Bach)** kalau pengguna setuju, supaya aplikasi lebih sederhana.
