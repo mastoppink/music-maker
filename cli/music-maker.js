@@ -96,7 +96,9 @@ function settingsFrom(opts) {
     pola: opts.pola ? pairs(opts.pola, 'pola') : base.pola ?? {},
     variasi: opts.variasi ? Object.fromEntries(Object.entries(pairs(opts.variasi, 'variasi')).map(([k, v]) => [k, Number(v)])) : base.variasi ?? {},
     volume: opts.volume ? Object.fromEntries(Object.entries(pairs(opts.volume, 'volume')).map(([k, v]) => [k, Number(v)])) : base.volume ?? {},
-    bisu: opts.bisu ? list(opts.bisu) : base.bisu ?? []
+    bisu: opts.bisu ? list(opts.bisu) : base.bisu ?? [],
+    // Tune names from a saved project keep the song identical even after new kits are added.
+    ...(base.melodi_kit && opts.seed === undefined ? { melodi_kit: base.melodi_kit } : {})
   };
   if (!['Tenang','Ceria','Melankolis'].includes(s.mood)) throw new Error('--mood harus Tenang, Ceria, atau Melankolis.');
   if (!['Akustik','Lo-fi','Pop','Jazz'].includes(s.genre)) throw new Error('--genre harus Akustik, Lo-fi, Pop, atau Jazz.');
@@ -153,7 +155,7 @@ function renderInPage(s) {
     for (const track of song.tracks) if (song.parts?.[track.name])
       variants[track.name] = (song.variants[track.name] ?? 0) % variationCount[track.name][song.parts[track.name]] + 1;
     return { description: describe(song), seconds: buf.duration, lufs: buf.loudness, peakDb: 20 * Math.log10(peak),
-      gaya: song.style?.name ?? null, pola: song.parts ?? {}, variasi: variants, notes, size: window.__wav.length };
+      gaya: song.style?.name ?? null, pola: song.parts ?? {}, variasi: variants, kits: song.kitChoice ?? null, notes, size: window.__wav.length };
   };
 }
 
@@ -211,7 +213,8 @@ async function make(opts) {
   try {
     const page = await openStudio(browser);
     for (let i = 0; i < count; i++) {
-      const s = { ...settings, seed: settings.seed + i };
+      // Extra versions get their own tunes; only the first keeps the saved ones.
+      const s = { ...settings, seed: settings.seed + i, ...(i ? { melodi_kit: undefined } : {}) };
       const started = Date.now();
       process.stdout.write(`Membuat lagu ${i + 1}/${count} (seed ${s.seed})… `);
       const info = await page.evaluate(renderInPage(s), s);
@@ -220,7 +223,7 @@ async function make(opts) {
       const file = path.join(outDir, name + '.wav');
       fs.writeFileSync(file, await fetchWav(page, info.size));
       // Settings file: the exact pattern and variation used, so --dari reproduces this song.
-      const saved = { ...s, gaya: info.gaya ?? s.gaya, pola: info.pola, variasi: info.variasi };
+      const saved = { ...s, gaya: info.gaya ?? s.gaya, pola: info.pola, variasi: info.variasi, ...(info.kits ? { melodi_kit: info.kits } : {}) };
       fs.writeFileSync(path.join(outDir, name + '.json'), JSON.stringify(saved, null, 2) + '\n');
       const min = Math.floor(info.seconds / 60), sec = Math.round(info.seconds % 60);
       console.log(`selesai dalam ${Math.round((Date.now() - started) / 1000)} detik`);
@@ -258,6 +261,8 @@ async function mix(opts) {
   if (!(fade >= 0 && fade <= 10)) throw new Error('--jeda harus antara 0 dan 10 detik.');
   if (opts.midi || opts.stem) throw new Error('--midi dan --stem hanya untuk "buat", bukan rangkaian.');
   const settings = settingsFrom({ ...opts, durasi: each, menit: undefined, 'durasi-lagu': undefined, jeda: undefined });
+  // Every song in a mix picks its own tunes.
+  delete settings.melodi_kit;
   const outDir = path.resolve(opts.keluar ?? 'hasil');
   fs.mkdirSync(outDir, { recursive: true });
   const name = `rangkaian-${settings.mood}-${settings.genre}-${minutes}menit-seed${settings.seed}`.toLowerCase().replace(/[^a-z0-9-]+/g, '-');

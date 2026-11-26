@@ -150,6 +150,49 @@ const kits = [
     [1,0,2,4],[1,2,2,7],[1,4,4,9],
     [2,0,3,10],[2,3,1,9],[2,4,4,7],
     [3,0,2,8],[3,2,2,6],[3,4,4,4]] },
+  // Second set (2026-11-26), each with its own character so long mixes repeat less:
+  // flowing arpeggios, a repeated-note motif, a falling line from high up, a tune that
+  // starts on vi, a plagal ending on IV; middles in new progressions.
+  { name:'Sungai', kind:'a', chords:[0,0,5,4], melody:[
+    [0,0,1,7],[0,1,1,4],[0,2,1,2],[0,3,1,4],[0,4,2,7],[0,6,2,9],
+    [1,0,1,9],[1,1,1,7],[1,2,1,4],[1,3,1,2],[1,4,4,4],
+    [2,0,1,5],[2,1,1,7],[2,2,1,9],[2,3,1,7],[2,4,2,5],[2,6,2,0],
+    [3,0,2,8],[3,2,2,6],[3,4,4,1]] },
+  { name:'Gembala', kind:'a', chords:[0,4,0,4], melody:[
+    [0,0,2,4],[0,2,2,4],[0,4,3,7],[0,7,1,5],
+    [1,0,2,4],[1,2,2,4],[1,4,4,6],
+    [2,0,2,4],[2,2,2,4],[2,4,3,9],[2,7,1,8],
+    [3,0,3,8],[3,3,1,6],[3,4,4,4]] },
+  { name:'Layang', kind:'a', chords:[0,3,4,0], melody:[
+    [0,0,3,7],[0,3,1,8],[0,4,4,9],
+    [1,0,2,10],[1,2,2,9],[1,4,3,7],[1,7,1,5],
+    [2,0,2,8],[2,2,2,6],[2,4,4,4],
+    [3,0,6,7],[3,6,1,null],[3,7,1,4]] },
+  { name:'Teras', kind:'a', chords:[5,3,0,4], melody:[
+    [0,0,3,2],[0,3,1,0],[0,4,2,2],[0,6,2,4],
+    [1,0,4,3],[1,4,2,5],[1,6,2,3],
+    [2,0,3,4],[2,3,1,2],[2,4,2,0],[2,6,2,2],
+    [3,0,4,4],[3,4,4,1]] },
+  { name:'Lentera', kind:'a', chords:[0,5,4,3], melody:[
+    [0,0,2,9],[0,2,1,8],[0,3,1,7],[0,4,4,4],
+    [1,0,2,7],[1,2,1,6],[1,3,1,5],[1,4,4,2],
+    [2,0,2,4],[2,2,1,5],[2,3,1,6],[2,4,4,8],
+    [3,0,4,7],[3,4,2,5],[3,6,2,null]] },
+  { name:'Bukit', kind:'b', chords:[3,4,5,4], melody:[
+    [0,0,3,5],[0,3,1,7],[0,4,4,10],
+    [1,0,3,8],[1,3,1,6],[1,4,4,4],
+    [2,0,3,7],[2,3,1,8],[2,4,4,9],
+    [3,0,4,6],[3,4,4,8]] },
+  { name:'Ombak', kind:'b', chords:[3,0,3,4], melody:[
+    [0,0,3,3],[0,3,1,5],[0,4,2,7],[0,6,2,8],
+    [1,0,2,4],[1,2,2,2],[1,4,2,4],[1,6,2,7],
+    [2,0,2,5],[2,2,1,3],[2,3,1,5],[2,4,4,7],
+    [3,0,2,6],[3,2,2,8],[3,4,2,6],[3,6,2,4]] },
+  { name:'Gerbang', kind:'b', chords:[5,0,4,4], melody:[
+    [0,0,2,5],[0,2,1,7],[0,3,1,8],[0,4,4,9],
+    [1,0,2,7],[1,2,2,4],[1,4,4,2],
+    [2,0,2,1],[2,2,2,4],[2,4,2,6],[2,6,2,8],
+    [3,0,4,8],[3,4,2,6],[3,6,2,null]] },
   // Minor kits for Melankolis. Same degrees and rules, played in natural minor:
   // 0 = i, 3 = iv, 4 = v, 5 = VI.
   { name:'Sepi', kind:'a', minor:true, chords:[0,5,3,4], melody:[
@@ -182,6 +225,38 @@ const kits = [
     [1,0,2,7],[1,2,2,8],[1,4,4,10],
     [2,0,3,9],[2,3,1,7],[2,4,4,4],
     [3,0,2,8],[3,2,2,6],[3,4,4,4]] },
+  // Second minor set: a gently circling line, a high falling line ending on iv, a sparse
+  // tune with lots of space, a tune that starts on VI and settles on i; two new middles.
+  { name:'Kabut Pagi', kind:'a', minor:true, chords:[0,0,5,4], melody:[
+    [0,0,2,4],[0,2,1,3],[0,3,1,2],[0,4,4,0],
+    [1,0,2,2],[1,2,2,4],[1,4,4,7],
+    [2,0,3,7],[2,3,1,5],[2,4,4,2],
+    [3,0,2,1],[3,2,2,4],[3,4,4,6]] },
+  { name:'Jendela', kind:'a', minor:true, chords:[0,4,5,3], melody:[
+    [0,0,3,7],[0,3,1,6],[0,4,2,4],[0,6,2,2],
+    [1,0,4,1],[1,4,2,4],[1,6,2,6],
+    [2,0,2,5],[2,2,2,7],[2,4,4,9],
+    [3,0,4,7],[3,4,2,5],[3,6,2,3]] },
+  { name:'Sunyi', kind:'a', minor:true, chords:[0,3,0,4], melody:[
+    [0,0,4,2],[0,4,4,4],
+    [1,0,4,3],[1,4,2,5],[1,6,2,3],
+    [2,0,4,4],[2,4,2,2],[2,6,2,1],
+    [3,0,6,1],[3,6,2,null]] },
+  { name:'Daun Gugur', kind:'a', minor:true, chords:[5,4,0,0], melody:[
+    [0,0,2,5],[0,2,2,4],[0,4,4,2],
+    [1,0,2,1],[1,2,2,2],[1,4,4,4],
+    [2,0,3,4],[2,3,1,2],[2,4,4,0],
+    [3,0,6,2],[3,6,2,null]] },
+  { name:'Malam Sepi', kind:'b', minor:true, chords:[3,4,0,4], melody:[
+    [0,0,3,7],[0,3,1,8],[0,4,4,10],
+    [1,0,3,8],[1,3,1,6],[1,4,4,4],
+    [2,0,2,7],[2,2,1,8],[2,3,1,7],[2,4,4,9],
+    [3,0,4,8],[3,4,4,6]] },
+  { name:'Hujan Malam', kind:'b', minor:true, chords:[5,3,4,4], melody:[
+    [0,0,4,9],[0,4,2,7],[0,6,2,8],
+    [1,0,4,10],[1,4,4,7],
+    [2,0,2,8],[2,2,2,6],[2,4,4,4],
+    [3,0,6,6],[3,6,2,null]] },
   // Jazz kits: syncopation (notes starting between beats and held over the next one),
   // rests (degree null) where a player would breathe, and running eighth notes.
   // Strong beats still hold chord tones; IV bars only use fa, la, do, which also belong
@@ -354,11 +429,19 @@ function planSong(bars) {
   // Minor (Melankolis) songs draw from the minor kits, the others from the major ones.
   // Jazz songs draw from the jazz kits (syncopated, with rests), the others from the rest.
   const pool = kits.filter(k => !!k.minor === !!song.minor && !!k.jazz === (song.genre === 'Jazz'));
-  const main = solo ?? choose(pool.filter(k => k.kind === 'a'));
-  const middle = solo ?? choose(pool.filter(k => k.kind === 'b'));
+  let main = solo ?? choose(pool.filter(k => k.kind === 'a'));
+  let middle = solo ?? choose(pool.filter(k => k.kind === 'b'));
   // Second tunes for long songs (picked after the first two so short songs stay the same).
-  const main2 = solo ?? choose(pool.filter(k => k.kind === 'a' && k !== main)) ?? main;
-  const middle2 = solo ?? choose(pool.filter(k => k.kind === 'b' && k !== middle)) ?? middle;
+  let main2 = solo ?? choose(pool.filter(k => k.kind === 'a' && k !== main)) ?? main;
+  let middle2 = solo ?? choose(pool.filter(k => k.kind === 'b' && k !== middle)) ?? middle;
+  // A saved project names its tunes, so it plays the same even after new kits are added.
+  const named = n => kits.find(k => k.name === n);
+  const fixed = song.kitChoice ?? {};
+  if (named(fixed.main)) main = named(fixed.main);
+  if (named(fixed.middle)) middle = named(fixed.middle);
+  if (named(fixed.main2)) main2 = named(fixed.main2);
+  if (named(fixed.middle2)) middle2 = named(fixed.middle2);
+  song.kitChoice = { main:main.name, middle:middle.name, main2:main2.name, middle2:middle2.name };
   const kitFor = { intro:main, A:main, Av:main, outro:main, pause:main, B:middle, B2:middle2, C:main2, Cv:main2,
     solo:main, solo2:main };
   const phrases = bars / 4;
@@ -987,9 +1070,10 @@ function play() {
 // Build the song for the chosen settings. Akustik · Tenang is fully seeded:
 // the same seed gives the same chords and melody for any set of instruments.
 function newSong({genre,mood,duration,names,seed,source='kit',onlyKit=null,pianoMelody=false,force={},vary={}}) {
+  // force.kits: tune names saved in a project (main, middle, main2, middle2).
   const bpm=({Tenang:78,Ceria:112,Melankolis:68})[mood]+({'Lo-fi':-6,Akustik:0,Pop:10})[genre];
   const r=rng(seed), choose=list=>list[Math.floor(r()*list.length)];
-  song={genre,mood,seed,duration,requested:duration,source,onlyKit,pianoMelody,vary,step:30/bpm,minor:mood==='Melankolis',
+  song={genre,mood,seed,duration,requested:duration,source,onlyKit,pianoMelody,vary,kitChoice:force.kits,step:30/bpm,minor:mood==='Melankolis',
     key:choose([60,62,65,67]),chords:choose([[0,3,5,4],[0,5,3,4],[0,4,5,3]]),
     tracks:names.map(name=>({name,events:[],volume:.7,muted:false})),harmony:null,variants:{}};
   if (source==='klasik') {
@@ -1065,7 +1149,8 @@ function projectOf(s) {
     pola:s.parts ? Object.fromEntries(Object.entries(s.parts).filter(([n]) => played(n))) : {},
     variasi:s.parts ? Object.fromEntries(Object.keys(s.parts).filter(played).map(n => [n, (s.variants[n] ?? 0) % variationCount[n][s.parts[n]] + 1])) : {},
     volume:Object.fromEntries(s.tracks.map(t => [t.name, Math.round(t.volume * 100)])),
-    bisu:s.tracks.filter(t => t.muted).map(t => t.name) };
+    bisu:s.tracks.filter(t => t.muted).map(t => t.name),
+    ...(s.kitChoice ? { melodi_kit:s.kitChoice } : {}) };
 }
 // Builds `song` from a project. Returns { error } or { notes } (things that were ignored).
 async function songFromProject(p) {
@@ -1080,7 +1165,7 @@ async function songFromProject(p) {
   const force = { parts:p.pola ?? {} };
   if (p.gaya) force.style = p.gaya;
   newSong({ genre:p.genre ?? 'Akustik', mood:p.mood ?? 'Tenang', duration:Number(p.durasi ?? 60), names, seed:Number(p.seed ?? 0),
-    source:p.sumber ?? 'kit', pianoMelody:p.melodi === 'piano', force });
+    source:p.sumber ?? 'kit', pianoMelody:p.melodi === 'piano', force:{ ...force, kits:p.melodi_kit } });
   const notes = [];
   if (!song.parts && (Object.keys(p.pola ?? {}).length || Object.keys(p.variasi ?? {}).length || p.gaya))
     notes.push('Gaya, pola, dan variasi hanya berlaku untuk sumber kit; diabaikan.');
