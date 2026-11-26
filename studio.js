@@ -45,7 +45,9 @@ const minorGrips = {
   4:{LowE:0,A:2,D:2,G:0,B:0,HighE:0},
   5:{LowE:1,A:3,D:3,G:2,B:1,HighE:1}
 };
-const gripTable = () => song.minor ? minorGrips : grips;
+const gripTable = () => song.genre === 'Akustik'
+  ? (song.minor ? acousticMinorGrips : acousticGrips)
+  : song.minor ? minorGrips : grips;
 const capoAt = bar => keyAt(bar) - (song.minor ? 57 : 60);
 const grips = {
   0:{A:3,D:2,G:0,B:1,HighE:0},
@@ -55,6 +57,10 @@ const grips = {
   4:{LowE:3,A:2,D:0,G:0,B:0,HighE:3},
   5:{A:0,D:2,G:2,B:1,HighE:0}
 };
+// Akustik: open "ringing" shapes for the tonic and vi, the sound of acoustic records
+// (Cadd9, Am7; minor key: Am7 for i). The added note is a chord extension, never a clash.
+const acousticGrips = { ...grips, 0:{A:3,D:2,G:0,B:3,HighE:0}, 5:{A:0,D:2,G:0,B:1,HighE:0} };
+const acousticMinorGrips = { ...minorGrips, 0:{A:0,D:2,G:0,B:1,HighE:0} };
 // ---- Akustik · Tenang: compose one song first, then hand roles to instruments ----
 // Seeded random source so the same seed always gives the same song.
 function rng(seed) {
@@ -634,6 +640,10 @@ const gitarMelodyBoostJazz = 3.8;
 const pianoUnderGuitar = 1.8;
 const guitarPeak = .13;
 const strumLevel = .3;
+// Level of the drum-kit hi-hat in the Pop patterns (tuned by measuring peaks against the kick).
+const popHat = .1;
+// The jazz hi-hat was turned well down by listening; Pop needs it clearly present again.
+const popHatBoost = 16;
 // Drum balance after levelling the recordings, in dB (common mixing proportions:
 // snare a little under the kick, cymbals and shaker further back). Tuned by measuring peaks.
 const drumBalance = { kick:0, snare:6, rim:3, hat:5, hhc:-6, hhl:-5, hhp:0 };
@@ -799,20 +809,36 @@ function arrange(name, variant = 0) {
       add(0, 'kick', .5, .16); add(4, 'kick', .5, .13);
       if (v === 1 && !cadence) add(6, 'rim', .3, .1);
     } else if (name === 'Drum' && role.drums && part === 'pop') {
-      // Pop beat: kick on one and three, snare on two and four, eighth-note hats.
+      // Pop beat: kick on one and three, snare on two and four, drum-kit hi-hat eighths with
+      // the hats opened on the last off-beat every other bar. Before a new section the drummer
+      // plays a short snare fill instead of the last beat.
       add(0, 'kick', .65, final ? .3 : .38);
       if (final) continue;
+      const fill = bar % 4 === 3 && song.harmony[bar + 1] && song.harmony[bar + 1].section !== section && !cadence;
       add(4, 'kick', .55, .32);
       if (v === 1) add(3, 'kick', .45, .24);
-      if (!cadence || v === 1) { add(2, 'snare', .34, .22); add(6, 'snare', .34, .22); }
-      for (let st = 0; st < 8; st++) add(st, 'hat', .18, st % 2 ? .06 : .085);
+      if (!cadence || v === 1) add(2, 'snare', .34, .22);
+      if (fill) {
+        for (const [st, level] of [[5,.12],[6,.15],[6.5,.17],[7,.19],[7.5,.22]]) add(st, 'snare', .3, level);
+        for (let st = 0; st < 5; st++) add(st, 'hhc', .18, st % 2 ? popHat * .8 : popHat, 0, popHatBoost);
+      } else {
+        if (!cadence || v === 1) add(6, 'snare', .34, .22);
+        const open = bar % 2 === 1;
+        for (let st = 0; st < 8; st++) {
+          if (open && st === 7) { add(7, 'hhl', 1, popHat * 1.1); events[events.length - 1].ring = song.step * .95; }
+          else add(st, 'hhc', .18, st % 2 ? popHat * .8 : popHat, 0, popHatBoost);
+        }
+      }
     } else if (name === 'Drum' && role.drums && part === 'balada') {
-      // Ballad: one kick, a single snare on three, quarter-note hats; lots of space.
+      // Ballad: one kick, a single snare on three, quarter-note hi-hats; lots of space.
+      // A soft three-note snare lead-in before a new section.
       add(0, 'kick', .65, final ? .3 : .34);
       if (final) continue;
+      const fill = bar % 4 === 3 && song.harmony[bar + 1] && song.harmony[bar + 1].section !== section && !cadence;
       if (v === 1) add(5, 'kick', .45, .22);
       if (!cadence) add(4, 'snare', .34, .2);
-      for (const st of [2, 4, 6]) add(st, 'hat', .2, .07);
+      if (fill) for (const [st, level] of [[6,.1],[7,.13],[7.5,.16]]) add(st, 'snare', .3, level);
+      for (const st of fill ? [2] : [2, 4, 6]) add(st, 'hhc', .2, popHat * .9, 0, popHatBoost);
     } else if (name === 'Drum' && role.drums && part === 'lofi') {
       // Boom-bap: kick on one and later in the bar, snare on two and four, soft shaker eighths.
       add(0, 'kick', .65, final ? .3 : .38);
@@ -1471,9 +1497,10 @@ function masterBus(audio, raw = false, when = 0, offset = 0) {
 const channelStrip = {
   Piano:  { eq:[['highpass',90,0,.7],['peaking',300,-2.5,1],['highshelf',8000,1.5,.7]], trim:0 },
   Gitar:  { eq:[['highpass',110,0,.7],['peaking',250,-3,1],['peaking',3000,2,.8]], trim:-.8 },
-  Bass:   { eq:[['highpass',35,0,.7],['peaking',90,2,.9],['peaking',250,-2,1]], comp:[-36,3,.01,.15], trim:-16.7 },
-  Drum:   { eq:[['highpass',40,0,.7]], comp:[-30,3,.02,.12], trim:-12 },
-  String: { eq:[['highpass',120,0,.7],['peaking',350,-2,1],['highshelf',7000,-2,.7]], trim:-1.1 }
+  Bass:   { eq:[['highpass',35,0,.7],['peaking',90,2,.9],['peaking',250,-2,1]], comp:[-36,3,.01,.15], trim:-15.3 },
+  // No compressor on drums: it flattened the kick against the snare (approved balance).
+  Drum:   { eq:[['highpass',40,0,.7]], trim:-1 },
+  String: { eq:[['highpass',120,0,.7],['peaking',350,-2,1],['highshelf',7000,-2,.7]], trim:.3 }
 };
 function compressor(audio, [threshold, ratio, attack, release], knee = 6) {
   const c = audio.createDynamicsCompressor();
