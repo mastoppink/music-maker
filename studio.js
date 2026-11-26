@@ -290,6 +290,44 @@ function applyFeel(notes, feel) {
   return notes;
 }
 
+// One bar of improvised piano line over a chord (Jazz solo sections). Rhythm comes from a set
+// of patterns (running eighths, longer notes, a syncopated hold, a breath at the start);
+// any note that starts on or sounds through a strong beat is a chord tone, the notes in
+// between step along the scale or leap to a chord tone, and the line turns at the edges of a
+// comfortable range. The last bar of each phrase ends with a held note and a breath.
+function improvise(root, pos, previous, r) {
+  const chordTone = d => [0, 2, 4].includes(((d - root) % 7 + 7) % 7);
+  const lo = 2, hi = 11;
+  const nearestTone = from => {
+    for (let k = 0; k < 8; k++) for (const d of [from + k, from - k]) if (d >= lo && d <= hi && chordTone(d)) return d;
+    return root + 7;
+  };
+  const patterns = pos === 3
+    ? [[[0,2],[2,1],[3,3],[6,2,'rest']], [[0,4],[4,2],[6,2,'rest']], [[0,1],[1,1],[2,1],[3,1],[4,2],[6,2,'rest']]]
+    : [[[0,1],[1,1],[2,1],[3,1],[4,1],[5,1],[6,1],[7,1]],
+       [[0,2],[2,1],[3,1],[4,1],[5,1],[6,2]],
+       [[0,1,'rest'],[1,1],[2,1],[3,1],[4,2],[6,1],[7,1]],
+       [[0,3],[3,3],[6,1],[7,1]],
+       [[0,1],[1,1],[2,2],[4,1],[5,1],[6,2]]];
+  const pattern = patterns[Math.floor(r() * patterns.length)];
+  let direction = r() < .5 ? 1 : -1, current = previous;
+  const notes = [];
+  for (const [onset, len, rest] of pattern) {
+    if (rest) { notes.push([onset, len, null]); continue; }
+    const strong = onset % 4 === 0 || Math.floor(onset / 4) !== Math.floor((onset + len - 1) / 4);
+    let d = strong ? nearestTone(current + direction) : r() < .25 ? nearestTone(current + 2 * direction) : current + direction;
+    // Avoid striking the same note twice in a row: move on to the next chord tone instead.
+    if (d === current) d = nearestTone(current + 2 * direction);
+    if (d > hi) { d = hi - 1; direction = -1; }
+    if (d < lo) { d = lo + 1; direction = 1; }
+    if (strong && !chordTone(d)) d = nearestTone(d);
+    if (r() < .15) direction = -direction;
+    notes.push([onset, len, d]);
+    current = d;
+  }
+  return { notes, last: current };
+}
+
 // Song form: every phrase (four bars) gets a section.
 //   intro  chords only                 A, Av  main tune (Av: melody rhythm varied)
 //   B, B2  contrasting middle, fuller  C, Cv  a second main tune, for long songs
@@ -321,9 +359,13 @@ function planSong(bars) {
   // Second tunes for long songs (picked after the first two so short songs stay the same).
   const main2 = solo ?? choose(pool.filter(k => k.kind === 'a' && k !== main)) ?? main;
   const middle2 = solo ?? choose(pool.filter(k => k.kind === 'b' && k !== middle)) ?? middle;
-  const kitFor = { intro:main, A:main, Av:main, outro:main, pause:main, B:middle, B2:middle2, C:main2, Cv:main2 };
+  const kitFor = { intro:main, A:main, Av:main, outro:main, pause:main, B:middle, B2:middle2, C:main2, Cv:main2,
+    solo:main, solo2:main };
   const phrases = bars / 4;
-  const form = songForm(phrases);
+  // Jazz: the second tune's place becomes two phrases of piano solo over the main tune's chords.
+  const form = songForm(phrases).map(x => song.genre === 'Jazz' ? ({ C:'solo', Cv:'solo2' })[x] ?? x : x);
+  const soloRandom = rng(song.seed ^ 0x5010);
+  let soloNote = 7;
   const harmony = [], melody = [], used = [];
   let turn = -1, firstTune = true, lifted = false;
   for (let bar = 0; bar < bars; bar++) {
@@ -331,7 +373,7 @@ function planSong(bars) {
     const section = form[phrase], kit = kitFor[section];
     if (pos === 0 && !used.includes(kit.name)) used.push(kit.name);
     // energy 0: no bass or drums; 1: normal; 2: fuller.
-    let energy = section === 'B' || section === 'B2' || section === 'Cv' ? 2 : 1;
+    let energy = section === 'B' || section === 'B2' || section === 'Cv' || section === 'solo2' ? 2 : 1;
     if (section === 'intro' || section === 'pause') energy = 0;
     // Long songs: after the pause, everything moves up a whole step for a fresh lift.
     if (section === 'pause' && phrases >= 10) lifted = true;
@@ -342,6 +384,8 @@ function planSong(bars) {
     } else if (section !== 'intro' && harmony.length) energy = harmony[harmony.length - 1].energy;
     let root = kit.chords[pos];
     let notes = section === 'intro' ? [] : kit.melody.filter(n => n[0] === pos).map(([, onset, len, degree]) => [onset, len, degree]);
+    const soloing = section === 'solo' || section === 'solo2';
+    if (soloing) { const line = improvise(root, pos, soloNote, soloRandom); notes = line.notes; soloNote = line.last; }
     if (last && pos === 2 && song.ending === 'kadens') {
       // Final cadence: V for one bar, then home on I.
       root = 4;
@@ -354,7 +398,7 @@ function planSong(bars) {
       notes = [[0,8,song.ending === 'kit' && before < 4 ? 0 : 7]];
     }
     const feel = section === 'Av' || section === 'Cv' ? otherFeel[song.style.feel] : song.style.feel;
-    if (!(last && pos >= 2)) notes = applyFeel(notes, feel);
+    if (!(last && pos >= 2) && !soloing) notes = applyFeel(notes, feel);
     harmony.push({ root, phrase, pos, section, energy, turn: Math.max(0, turn),
       shift: vary('naik') && lifted && section !== 'pause' ? 2 : 0,
       // Drums rest while the second tune is first heard; bass carries on.
@@ -414,10 +458,12 @@ function arrangeChorale(name) {
 // Who plays what in a bar, given the active instruments.
 function roles(bar) {
   const has = name => song.tracks.some(t => t.name === name);
-  const { turn, energy } = song.harmony[bar];
+  const { turn, energy, section } = song.harmony[bar];
   const both = has('Piano') && has('Gitar');
   // song.pianoMelody keeps the tune on piano and the guitar accompanying throughout.
-  const melody = both ? (song.pianoMelody || turn % 2 === 0 ? 'Piano' : 'Gitar') : has('Piano') ? 'Piano' : has('Gitar') ? 'Gitar' : null;
+  // Jazz solos are always the piano's.
+  const soloing = section === 'solo' || section === 'solo2';
+  const melody = both ? (song.pianoMelody || soloing || turn % 2 === 0 ? 'Piano' : 'Gitar') : has('Piano') ? 'Piano' : has('Gitar') ? 'Gitar' : null;
   const chords = both ? (melody === 'Piano' ? 'Gitar' : 'Piano') : melody;
   // Bass and drums play only in sections with energy (not in the intro, the first
   // statement of the tune, or the thin pause).
@@ -517,7 +563,7 @@ function arrange(name, variant = 0) {
   const turn = rand() < .5 ? 0 : 1;
   const chosen = song.parts?.[name];
   // Accompaniment changes from section to section so long songs keep moving.
-  const sectionShift = { intro:0, A:0, Av:1, B:2, B2:1, C:1, Cv:2, pause:0, outro:0 };
+  const sectionShift = { intro:0, A:0, Av:1, B:2, B2:1, C:1, Cv:2, solo:1, solo2:2, pause:0, outro:0 };
   const swap = { petik:'genjreng', genjreng:'petik' };
   const long = vary('pola') && song.harmony.length >= 24;
   const alone = song.tracks.length === 1;
