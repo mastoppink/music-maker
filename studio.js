@@ -165,6 +165,22 @@ function applyFeel(notes, feel) {
   return notes;
 }
 
+// Song form: every phrase (four bars) gets a section.
+//   intro  chords only                 A, Av  main tune (Av: melody rhythm varied)
+//   B, B2  contrasting middle, fuller  C, Cv  a second main tune, for long songs
+//   pause  thin: tune and chords only  outro  main tune with the ending
+// Short songs come out as A Av B Av ... like before; long songs walk further
+// through the cycle so the music keeps changing.
+const formCycle = ['A','Av','B','Av','C','Cv','B2','A','pause','Av','B','A'];
+function songForm(phrases) {
+  const form = phrases >= 6 ? ['intro'] : [];
+  const fill = phrases - form.length - 1;
+  for (let i = 0; i < fill; i++) form.push(formCycle[i % formCycle.length]);
+  form.push('outro');
+  return form;
+}
+const otherFeel = { panjang:'asli', asli:'rapat', rapat:'asli' };
+
 // Song plan shared by every instrument: chord per bar and one melody line.
 // Built from the kits above; depends only on the seed, never on the instruments.
 function planSong(bars) {
@@ -174,19 +190,28 @@ function planSong(bars) {
   const solo = kits.find(k => k.name === song.onlyKit);
   const main = solo ?? choose(kits.filter(k => k.kind === 'a'));
   const middle = solo ?? choose(kits.filter(k => k.kind === 'b'));
+  // Second tunes for long songs (picked after the first two so short songs stay the same).
+  const main2 = solo ?? choose(kits.filter(k => k.kind === 'a' && k !== main));
+  const middle2 = solo ?? choose(kits.filter(k => k.kind === 'b' && k !== middle));
+  const kitFor = { intro:main, A:main, Av:main, outro:main, pause:main, B:middle, B2:middle2, C:main2, Cv:main2 };
   const phrases = bars / 4;
-  // Main tune first, contrast in the middle, main tune again at the end.
-  const order = [];
-  for (let p = 0; p < phrases; p++) {
-    const contrast = phrases >= 4 && p % 4 === 2;
-    order.push(contrast ? middle : main);
-  }
-  const harmony = [], melody = [];
+  const form = songForm(phrases);
+  const harmony = [], melody = [], used = [];
+  let turn = -1, firstTune = true;
   for (let bar = 0; bar < bars; bar++) {
     const phrase = Math.floor(bar / 4), pos = bar % 4, last = phrase === phrases - 1;
-    const kit = order[phrase];
+    const section = form[phrase], kit = kitFor[section];
+    if (pos === 0 && !used.includes(kit.name)) used.push(kit.name);
+    // energy 0: no bass or drums; 1: normal; 2: fuller.
+    let energy = section === 'B' || section === 'B2' || section === 'Cv' ? 2 : 1;
+    if (section === 'intro' || section === 'pause') energy = 0;
+    if (section !== 'intro' && pos === 0) {
+      turn++;
+      // The tune is heard once on its own before bass and drums come in.
+      if (firstTune) { energy = 0; firstTune = false; }
+    } else if (section !== 'intro' && harmony.length) energy = harmony[harmony.length - 1].energy;
     let root = kit.chords[pos];
-    let notes = kit.melody.filter(n => n[0] === pos).map(([, onset, len, degree]) => [onset, len, degree]);
+    let notes = section === 'intro' ? [] : kit.melody.filter(n => n[0] === pos).map(([, onset, len, degree]) => [onset, len, degree]);
     if (last && pos === 2 && song.ending === 'kadens') {
       // Final cadence: V for one bar, then home on I.
       root = 4;
@@ -198,18 +223,18 @@ function planSong(bars) {
       root = 0;
       notes = [[0,8,song.ending === 'kit' && before < 4 ? 0 : 7]];
     }
-    if (!(last && pos >= 2)) notes = applyFeel(notes, song.style.feel);
-    harmony.push({ root, phrase, pos, lift: kit.kind === 'b' || phrase % 2 === 1,
-      cadence: last && pos === 2, final: bar === bars - 1 });
+    const feel = section === 'Av' || section === 'Cv' ? otherFeel[song.style.feel] : song.style.feel;
+    if (!(last && pos >= 2)) notes = applyFeel(notes, feel);
+    harmony.push({ root, phrase, pos, section, energy, turn: Math.max(0, turn),
+      lift: energy === 2 || kit.kind === 'b', cadence: last && pos === 2, final: bar === bars - 1 });
     melody.push(notes);
   }
-  return { harmony, melody, kitNames: [main.name, middle.name] };
+  return { harmony, melody, kitNames: used };
 }
 
 // ---- Klasik: a Bach chorale arranged for the chosen instruments ----
 // Voices: 0 soprano (tune), 1 alto, 2 tenor (inner parts), 3 bass.
 function arrangeChorale(name) {
-  const piece = song.chorale;
   const has = n => song.tracks.some(t => t.name === n);
   const voicesFor = {
     Piano: has('Gitar') ? [0, ...(has('Bass') ? [] : [3])] : [0,1,2, ...(has('Bass') ? [] : [3])],
@@ -218,9 +243,11 @@ function arrangeChorale(name) {
     Drum: []
   }[name];
   const events = [];
-  for (let pass = 0; pass < song.repeats; pass++) {
-    const offset = pass * piece.len / 2;
-    const lastPass = pass === song.repeats - 1;
+  let offset = 0;
+  for (let pass = 0; pass < song.passes.length; pass++) {
+    const piece = song.passes[pass];
+    if (pass) offset += song.passes[pass - 1].len / 2;
+    const lastPass = pass === song.passes.length - 1;
     for (const v of voicesFor) {
       for (const [start, len, midi] of piece.voices[v]) {
         const ending = lastPass && start + len >= piece.len;
@@ -243,13 +270,14 @@ function arrangeChorale(name) {
 // Who plays what in a bar, given the active instruments.
 function roles(bar) {
   const has = name => song.tracks.some(t => t.name === name);
-  const { phrase } = song.harmony[bar];
+  const { turn, energy } = song.harmony[bar];
   const both = has('Piano') && has('Gitar');
   // song.pianoMelody keeps the tune on piano and the guitar accompanying throughout.
-  const melody = both ? (song.pianoMelody || phrase % 2 === 0 ? 'Piano' : 'Gitar') : has('Piano') ? 'Piano' : has('Gitar') ? 'Gitar' : null;
+  const melody = both ? (song.pianoMelody || turn % 2 === 0 ? 'Piano' : 'Gitar') : has('Piano') ? 'Piano' : has('Gitar') ? 'Gitar' : null;
   const chords = both ? (melody === 'Piano' ? 'Gitar' : 'Piano') : melody;
-  // Bass and drums join after the first phrase so the tune is heard alone first.
-  const ensemble = bar >= 4 || !melody;
+  // Bass and drums play only in sections with energy (not in the intro, the first
+  // statement of the tune, or the thin pause).
+  const ensemble = energy >= 1 || !melody;
   return { melody, chords, bass: has('Bass') && ensemble, drums: has('Drum') && ensemble };
 }
 
@@ -569,6 +597,8 @@ function voice(track,event,when,audio=ctx,remaining=total()-(when-start)) {
   if (audio === ctx && track.sources) track.sources.push(source);
   source.start(when);
   source.stop(when+length);
+  // Let finished notes drop out of the audio graph so long songs stay light.
+  source.onended = () => gain.disconnect();
 }
 
 function clock(t) {return Math.floor(t/60)+':'+String(Math.floor(t%60)).padStart(2,'0')}
@@ -598,12 +628,21 @@ function onset(event) {
   return beat * song.step + feel + event.delay + song.step * .35 * slow * slow / 32;
 }
 
+// Notes are handed to the audio engine a few seconds ahead of time, not all at once:
+// every waiting note costs processing time until it has played.
+const lookahead = 4;
 function scheduleTrack(track, offset) {
   track.sources = [];
   track.bus = trackBus(ctx, track, song.master);
-  for (const event of track.events) {
-    const at = onset(event);
-    if (at >= offset) voice(track,event,start+at,ctx,total()-at);
+  track.queue = track.events.map(e => [onset(e), e]).filter(([at]) => at >= offset).sort((a, b) => a[0] - b[0]);
+  track.next = 0;
+  pump(track);
+}
+function pump(track) {
+  const horizon = ctx.currentTime - start + lookahead;
+  while (track.next < track.queue.length && track.queue[track.next][0] < horizon) {
+    const [at, event] = track.queue[track.next++];
+    voice(track, event, start + at, ctx, total() - at);
   }
 }
 
@@ -615,7 +654,10 @@ function play() {
   timer = setInterval(() => {
     const elapsed = ctx.currentTime - start;
     if (elapsed >= total()) halt();
-    else display(Math.max(0,elapsed));
+    else {
+      display(Math.max(0,elapsed));
+      for (const track of song.tracks) if (track.bus) pump(track);
+    }
   },100);
 }
 // Build the song for the chosen settings. Akustik · Tenang is fully seeded:
@@ -630,8 +672,29 @@ function newSong({genre,mood,duration,names,seed,source='kit',onlyKit=null,piano
     // Calm chorale tempo; repeat the piece to fill the chosen length, stretching slightly.
     song.chorale=choose(chorales);
     const steps=song.chorale.len/2;
-    song.repeats=Math.max(1,Math.round(duration/(steps*.42)));
-    song.step=duration/(song.repeats*steps+3);
+    const repeats=Math.max(1,Math.round(duration/(steps*.42)));
+    // Short songs repeat one chorale; long ones play several, each twice, so it keeps moving.
+    song.passes=Array(repeats).fill(song.chorale);
+    if (repeats > 3) {
+      song.passes=[];
+      let total=0, piece=song.chorale;
+      const left=chorales.filter(c=>c!==piece);
+      const target=duration/.42;
+      while (total < target) {
+        // Stop instead of overshooting badly with one more long chorale.
+        if (total > target*.85 && total+piece.len > target*1.1) break;
+        song.passes.push(piece,piece); total+=piece.len;
+        const remaining=target-total;
+        // Near the end, take the chorale whose length fits what is left best.
+        const pickAt=remaining < Math.max(...left.map(c=>c.len)) && left.length
+          ? left.reduce((best,c,i)=>Math.abs(c.len-remaining)<Math.abs(left[best].len-remaining)?i:best,0)
+          : Math.floor(r()*left.length);
+        piece=left.splice(pickAt,1)[0] ?? song.chorale;
+      }
+      // Keep a calm chorale tempo; the length moves a little instead.
+      song.step=.42;
+      song.duration=(total+3)*song.step;
+    } else song.step=duration/(song.passes.reduce((sum,p)=>sum+p.len/2,0)+3);
     for (const track of song.tracks) track.events=pattern(track.name);
     return song;
   }
@@ -664,7 +727,7 @@ function newSong({genre,mood,duration,names,seed,source='kit',onlyKit=null,piano
 }
 let versions=[];
 function describe(s) {
-  const what = s.chorale ? 'Korale Bach #'+s.chorale.id : s.kitNames ? 'Gaya '+s.style.name+' · Kit '+s.kitNames.join(' + ') : s.genre+' · '+s.mood;
+  const what = s.chorale ? 'Korale Bach #'+[...new Set(s.passes.map(p=>p.id))].join(', #') : s.kitNames ? 'Gaya '+s.style.name+' · Kit '+s.kitNames.join(' + ') : s.genre+' · '+s.mood;
   return what+' · '+Math.round(30/s.step)+' BPM · seed '+s.seed;
 }
 function showVersion(i) {
@@ -743,7 +806,7 @@ el('settings').onsubmit=async e=>{
     // Both melody styles were liked for different reasons, so the listener picks per song.
     const pianoMelody=el('melody').value==='piano';
     const seed=Math.floor(Math.random()*1e9);
-    el('message').textContent='Menyiapkan versi A dan B…';
+    el('message').textContent='Menyiapkan versi A dan B…'+(Number(el('duration').value)>=180?' Lagu panjang butuh sekitar setengah menit.':'');
     // Two versions with neighbouring seeds; the listener simply keeps the one they like.
     versions=[];
     for (const s of [seed,seed+1]) {
@@ -909,14 +972,23 @@ function mixGain(buffer) {
 async function renderMix(normalized) {
     const audio=new OfflineAudioContext(2,Math.ceil(total()*44100),44100);
     const output=masterBus(audio,!normalized);
+    const items=[];
     for(const track of song.tracks){
       if(track.muted) continue;
-      const bus=trackBus(audio,track,output);
-      for(const event of track.events){
-        const when=onset(event);
-        voice({...track,bus},event,when,audio,total()-when);
-      }
+      const lane={...track,bus:trackBus(audio,track,output)};
+      for(const event of track.events) items.push([onset(event),lane,event]);
     }
+    items.sort((a,b)=>a[0]-b[0]);
+    // Feed notes in slices while rendering, a step ahead, instead of all up front.
+    let next=0;
+    const feed=until=>{
+      while(next<items.length && items[next][0]<until){
+        const [when,lane,event]=items[next++];
+        voice(lane,event,when,audio,total()-when);
+      }
+    };
+    feed(lookahead*2);
+    for(let t=lookahead;t<total()-.1;t+=lookahead) audio.suspend(t).then(()=>{feed(t+lookahead*2);audio.resume()});
     return audio.startRendering();
 }
 function wav(buffer) {

@@ -35,6 +35,12 @@ Cara kerja dengan pengguna: pengguna tidak membaca not dan tidak menilai nada. S
   - Drum: Lembut, Tipis, Berjalan (masing-masing 2 variasi).
   - Uji: 51.314 nada iringan dari semua pola dan variasi, 0 nada di luar akor. Volume antar pola setara (selisih maksimal ±2 dB).
 - **A/B**: setiap "Buat musik" menghasilkan dua versi.
+- **Bentuk lagu** (`songForm`, `formCycle`): setiap frasa mendapat bagian dan tingkat energi (0 tanpa bass/drum, 1 normal, 2 lebih penuh).
+  - Urutan: pembuka (hanya iringan, untuk lagu ≥6 frasa) → A → Av (irama melodi diubah, `otherFeel`) → B → Av → C/Cv (melodi kedua) → B2 → A → jeda (tipis) → … → penutup.
+  - Lagu pendek tetap berbentuk A Av B Av.
+  - Melodi bergantian piano/gitar per kemunculan melodi (`turn`), bukan per frasa.
+- **Durasi**: 30 detik, 1, 2, 3, dan 5 menit. Klasik panjang menyambung beberapa korale (masing-masing dua kali) dengan tempo tetap 71 BPM; korale terakhir dipilih yang paling pas dengan sisa waktu.
+- **Kecepatan**: nada dijadwalkan bertahap (`pump` saat diputar, `audio.suspend` saat render), dan nada yang selesai dilepas. Render 5 menit turun dari 112–140 detik menjadi sekitar 16 detik, dengan hasil suara identik (selisih −77 dB).
 - **Mix dan mastering**:
   - Gema ruangan buatan (`roomImpulse`, sekitar 2 detik, ber-seed sehingga hasilnya selalu sama), dikirim per instrumen (`placement.room`).
   - Posisi kiri-kanan (`placement.pan`): piano −0,22, gitar +0,26, bass dan drum di tengah.
@@ -60,9 +66,13 @@ Cara kerja dengan pengguna: pengguna tidak membaca not dan tidak menilai nada. S
 - Melodi yang disusun otomatis dengan aturan. Diganti kit tulis tangan.
 - Pemilihan 12 kit lewat A/B: semuanya terdengar mirip karena hanya melodi yang berbeda. Diganti gaya lagu.
 
+## Menunggu dengar
+
+- Contoh 3 menit Kit (Santai, seed 3) dan Klasik (seed 6): apakah membosankan, dan mulai menit ke berapa.
+
 ## Berikutnya (urut prioritas)
 
-1. **Durasi untuk YouTube.** Pilihan 3 dan 5 menit (lebih banyak bagian dan variasi), dan "rangkaian" 30–60 menit dari beberapa lagu berbeda dengan jeda halus.
+1. **Rangkaian 30–60 menit** dari beberapa lagu berbeda dengan jeda halus (lagu 3 dan 5 menit sudah ada).
 2. **Mood Melankolis.** Kit bernada minor dengan format yang sama, plus gaya yang cocok.
 3. **Genre Lo-fi dan Pop** di mesin kit. Gaya baru (misalnya drum lo-fi yang diayun, suara lebih hangat) memakai kit yang sama.
 4. **Simpan dan buka proyek** (seed, mood, genre, gaya, instrumen, pengaturan tiap instrumen, volume), supaya lagu bisa dibuat persis sama lagi.
