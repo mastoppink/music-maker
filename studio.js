@@ -253,7 +253,17 @@ function roles(bar) {
   return { melody, chords, bass: has('Bass') && ensemble, drums: has('Drum') && ensemble };
 }
 
-function fingerpick(events, bar, root, final, lift, quiet, turn, noBass) {
+// Pattern choices per instrument, shown in each track row. "Buat ulang" steps
+// through the variations of the chosen pattern (variant number).
+const partOptions = {
+  Gitar: { petik:'Petik', genjreng:'Genjreng' },
+  Piano: { blok:'Akor', pecah:'Akor dipecah' },
+  Bass:  { tahan:'Panjang', dua:'Dua nada' },
+  Drum:  { lembut:'Lembut', tipis:'Tipis', jalan:'Berjalan' }
+};
+const variationCount = { Gitar:{ petik:3, genjreng:2 }, Piano:{ blok:3, pecah:3 }, Bass:{ tahan:2, dua:2 }, Drum:{ lembut:2, tipis:2, jalan:2 } };
+
+function fingerpick(events, bar, root, final, lift, quiet, turn, noBass, v = 0) {
   const grip = grips[root];
   const strings = Object.keys(grip);
   const capo = song.key - 60;
@@ -265,6 +275,20 @@ function fingerpick(events, bar, root, final, lift, quiet, turn, noBass) {
   pluck(0, strings[0], noBass ? .48 : .60);
   if (final) {
     ['D','G','B','HighE'].forEach((string, i) => pluck(0, string, .47 - i * .02, .045 * (i + 1)));
+    return;
+  }
+  const soft = quiet ? .9 : 1;
+  if (v === 1) {
+    // Rolling up and back down across the treble strings.
+    [[1,'G',.43],[2,'B',.5],[3,'HighE',.55],[4,'D',.52],[5,'HighE',.5],[6,'B',.47],[7,'G',.42]]
+      .forEach(([step, string, level]) => pluck(step, string, level * soft, .015));
+    return;
+  }
+  if (v === 2) {
+    // Steady thumb on the low strings, fingers answering in between.
+    pluck(0, 'HighE', .5 * soft, .02);
+    pluck(2, 'D', .5); pluck(4, strings[0], noBass ? .44 : .52); pluck(6, 'D', .48);
+    [[1,'G',.42],[3,'B',.48],[5,'HighE',.5],[7,'B',.44]].forEach(([step, string, level]) => pluck(step, string, level * soft, .015));
     return;
   }
   const summit = bar % 4 === 2 ? 'HighE' : 'B';
@@ -282,7 +306,7 @@ function fingerpick(events, bar, root, final, lift, quiet, turn, noBass) {
 }
 
 // Soft strummed guitar: whole chord, down strokes low to high, light up strokes on top.
-function strum(events, bar, root, final, noBass) {
+function strum(events, bar, root, final, noBass, v = 0) {
   const grip = grips[root];
   const capo = song.key - 60;
   let strings = Object.keys(grip);
@@ -293,11 +317,10 @@ function strum(events, bar, root, final, noBass) {
       delay: i * (up ? .011 : .016) + .004 * rand(), len: 3 }));
   };
   if (final) { hit(0, false, strumLevel * 1.05); return; }
-  hit(0, false, strumLevel * 1.05);
-  hit(3, true, strumLevel * .8);
-  hit(4, false, strumLevel);
-  hit(6, false, strumLevel * .9);
-  hit(7, true, strumLevel * .75);
+  const rhythm = v === 1
+    ? [[0,false,1.05],[2,false,.8],[4,false,1],[5,true,.7],[6,false,.85],[7,true,.7]]
+    : [[0,false,1.05],[3,true,.8],[4,false,1],[6,false,.9],[7,true,.75]];
+  for (const [step, up, level] of rhythm) hit(step, up, strumLevel * level);
 }
 
 // Mix balance measured per bar (RMS): the tune must stay loudest, drums sit lowest.
@@ -312,6 +335,8 @@ function arrange(name, variant = 0) {
   const bars = song.harmony.length;
   const events = [];
   const turn = rand() < .5 ? 0 : 1;
+  const part = song.parts?.[name];
+  const v = part ? variant % variationCount[name][part] : 0;
   const alone = song.tracks.length === 1;
   for (let bar = 0; bar < bars; bar++) {
     const { root, lift, cadence, final } = song.harmony[bar];
@@ -327,11 +352,20 @@ function arrange(name, variant = 0) {
     };
     if (name === 'Piano') {
       if (role.melody === 'Piano') playMelody(0, .40);
-      if (role.chords === 'Piano' && song.style.piano === 'pecah') {
+      if (role.chords === 'Piano' && part === 'pecah') {
         // Broken chord in eighths; the pedal keeps it ringing as one wash.
-        const shape = final ? [0,4,7,9] : [0,4,7,9,7,4,7,4];
+        // Every shape uses only root, fifth, octave and the third above (chord tones).
+        const shapes = [[0,4,7,9,7,4,7,4],[0,4,7,4,9,4,7,4],[0,7,4,9,4,7,4,9]];
+        const shape = final ? [0,4,7,9] : shapes[v];
         const soft = role.melody === 'Piano' ? .75 : 1;
         shape.forEach((x, i) => add(i, pitch(root + x) - 12, final ? 7.5 : 1, arpLevel * soft * (i % 4 === 0 ? 1.15 : 1), .01));
+      } else if (role.chords === 'Piano' && v > 0 && !final) {
+        // Repeated chords: on beats one and three, or gently pushed off the beat.
+        const soft = role.melody === 'Piano' ? 1 : .85;
+        const notes = role.bass ? [root + 2, root + 4, root + 7] : [root, root + 4, root + 7];
+        const hits = v === 1 ? [[0,4,1],[4,4,.85]] : [[0,3,1],[3,3,.8],[6,2,.75]];
+        for (const [step, len, level] of hits)
+          notes.forEach((x, i) => add(step, pitch(x) - 12, len, (i ? .17 : .22) * soft * level, .01 + i * .012));
       } else if (role.chords === 'Piano') {
         const soft = role.melody === 'Piano' ? 1 : .85;
         if (!role.bass) {
@@ -360,24 +394,29 @@ function arrange(name, variant = 0) {
       }
       if (role.chords === 'Gitar') {
         const quiet = role.melody !== 'Gitar' || alone;
-        if (song.style.guitar === 'genjreng') strum(events, bar, root, final, role.bass);
-        else fingerpick(events, bar, root, final, lift, quiet, turn, role.bass);
+        if (part === 'genjreng') strum(events, bar, root, final, role.bass, v);
+        else fingerpick(events, bar, root, final, lift, quiet, turn, role.bass, v);
       }
     } else if (name === 'Bass' && role.bass) {
-      add(0, pitch(root) - 24, final ? 7.5 : 7.6, final ? .30 : .32, .01);
-    } else if (name === 'Drum' && role.drums && song.style.drum === 'tipis') {
+      const two = part === 'dua' && !final;
+      add(0, pitch(root) - 24, final ? 7.5 : two ? 3.8 : v === 1 ? 5.8 : 7.6, final ? .30 : .32, .01);
+      if (two) add(4, pitch(root + 4) - 24, v === 1 ? 1.8 : 3.6, .29, .01);
+      // Variation: a short octave note leading into the next bar.
+      if (v === 1 && !final) add(6, pitch(root) - 12, 1.6, .26, .01);
+    } else if (name === 'Drum' && role.drums && part === 'tipis') {
       add(0, 'kick', .65, final ? .26 : .3);
-      if (!final && !cadence) add(4, 'hat', .22, .1);
-    } else if (name === 'Drum' && role.drums && song.style.drum === 'jalan') {
+      if (!final && !cadence) add(4, v === 1 ? 'rim' : 'hat', .22, v === 1 ? .09 : .1);
+    } else if (name === 'Drum' && role.drums && part === 'jalan') {
       add(0, 'kick', .65, final ? .30 : .36);
       if (final) continue;
-      for (let s = 1; s < 8; s++) add(s, 'hat', .2, s % 2 ? .06 : .08);
+      for (let s = 1; s < 8; s++) if (v === 0 || s % 2 === 0) add(s, 'hat', .2, s % 2 ? .06 : .08);
       add(4, 'kick', .5, .22);
-      if (!cadence) { add(2, 'rim', .3, .12); add(6, 'rim', .3, .11); }
+      if (!cadence) { if (v === 0) add(2, 'rim', .3, .12); add(6, 'rim', .3, .11); }
     } else if (name === 'Drum' && role.drums) {
       add(0, 'kick', .65, final ? .30 : .36);
       if (final) continue;
       add(2, 'hat', .22, .13);
+      if (v === 1) add(5, 'kick', .4, .2);
       if (!cadence) {
         if (lift) add(4, 'snare', .34, .18);
         add(6, 'hat', .22, .11);
@@ -607,6 +646,8 @@ function newSong({genre,mood,duration,names,seed,source='kit',onlyKit=null,piano
     const [lo,hi]=song.style.bpm;
     song.step=30/(lo+r2()*(hi-lo));
     song.ending=force.ending ?? pick2(['kadens','kit']);
+    // Each instrument starts with the style's pattern; the listener can change any of them.
+    song.parts={Gitar:song.style.guitar, Piano:song.style.piano, Drum:song.style.drum, Bass:'tahan', ...force.parts};
     song.ritard=force.ritard ?? r2()<.5;
     if (force.key) song.key=force.key;
   }
@@ -639,16 +680,52 @@ function showVersion(i) {
 }
 el('versionA').onclick=()=>showVersion(0);
 el('versionB').onclick=()=>showVersion(1);
+// Rebuild one instrument and swap it in while playing; the other tracks are untouched.
+function refresh(track) {
+  track.events=pattern(track.name);
+  if (!timer) return;
+  const old=track.bus;
+  for (const src of track.sources) src.stop(ctx.currentTime+.35);
+  old.gain.setTargetAtTime(0,ctx.currentTime,.05);
+  setTimeout(()=>old.disconnect(),350);
+  scheduleTrack(track,Math.max(0,ctx.currentTime-start));
+}
+function partLabel(name) {
+  const part=song.parts?.[name];
+  if (!part) return '';
+  const count=variationCount[name][part], v=(song.variants[name]??0)%count;
+  return partOptions[name][part]+(count>1?' · variasi '+(v+1)+' dari '+count:'');
+}
 function render() {
   el('tracks').replaceChildren();
   for(const track of song.tracks) {
+    const name=track.name;
     const row=document.createElement('div');
     row.className='track';
-    row.innerHTML='<strong>'+track.name+'</strong><label>Volume <input type="range" min="0" max="100" value="70"></label><label><input type="checkbox"> Bisukan</label><button>Buat ulang</button>';
+    row.innerHTML='<strong>'+name+'</strong><label>Volume <input type="range" min="0" max="100"></label><label><input type="checkbox"> Bisukan</label><button>Buat ulang</button>';
     const [volume,mute]=row.querySelectorAll('input');
+    volume.value=Math.round(track.volume*100); mute.checked=track.muted;
     const mix=()=>{track.volume=volume.value/100;track.muted=mute.checked;if(track.bus) track.bus.gain.setTargetAtTime(track.muted?0:track.volume,ctx.currentTime,.01)};
     volume.oninput=mix; mute.onchange=mix;
-    row.querySelector('button').onclick=()=>{if(song.variants) song.variants[track.name]=(song.variants[track.name]??0)+1;track.events=pattern(track.name);if(timer){const old=track.bus;for(const src of track.sources) src.stop(ctx.currentTime+.35);old.gain.setTargetAtTime(0,ctx.currentTime,.05);setTimeout(()=>old.disconnect(),350);scheduleTrack(track,Math.max(0,ctx.currentTime-start))}el('message').textContent='Pola '+track.name.toLowerCase()+' diperbarui.'};
+    // Pattern choice for this instrument (kit songs only).
+    if (song.parts?.[name]) {
+      const label=document.createElement('label');
+      label.textContent='Pola ';
+      const select=document.createElement('select');
+      for (const [value,text] of Object.entries(partOptions[name])) select.add(new Option(text,value,false,value===song.parts[name]));
+      // Piano patterns only apply while the piano accompanies.
+      const used=name!=='Piano' || song.harmony.some((_,bar)=>roles(bar).chords==='Piano');
+      select.disabled=!used;
+      if (!used) label.title='Piano sedang membawa melodi sepanjang lagu, jadi pola iringan tidak dipakai.';
+      label.append(select);
+      row.querySelector('strong').after(label);
+      select.onchange=()=>{song.parts[name]=select.value;song.variants[name]=0;refresh(track);el('message').textContent=name+': '+partLabel(name)+'.'};
+    }
+    row.querySelector('button').onclick=()=>{
+      song.variants[name]=(song.variants[name]??0)+1;
+      refresh(track);
+      el('message').textContent=song.parts?.[name] ? name+': '+partLabel(name)+'.' : 'Pola '+name.toLowerCase()+' diperbarui.';
+    };
     el('tracks').append(row);
   }
   el('studio').hidden=false;
