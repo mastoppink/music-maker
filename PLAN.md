@@ -18,8 +18,8 @@ Cara kerja dengan pengguna: pengguna tidak membaca not dan tidak menilai nada. S
 ## Keadaan sekarang (2026-11-26)
 
 - **Mood dan genre**:
-  - Akustik dan Lo-fi, mood Tenang dan Ceria, memakai mesin kit dan gaya (lengkap).
-  - Mood Melankolis dan genre Pop masih memakai mesin lama yang sederhana.
+  - Akustik, Lo-fi, dan Pop, mood Tenang dan Ceria, memakai mesin kit dan gaya (lengkap).
+  - Mood Melankolis masih memakai mesin lama yang sederhana.
 - **Lo-fi** (gaya Belajar, Malam, Kopi pagi): swing dari `onset`, piano `jazz` (akor septim, digulung, tanpa root bila ada bass), drum `lofi` (boom-bap), master low-pass dan high-pass 45 Hz, goyang nada seperti kaset, desis piringan hitam (`crackleBuffer`). Kekuatan efek di `lofi`. Pengguna: "semua bagus, tapi efek rusaknya perlu diperhalus supaya tetap enak didengarkan lama", jadi diperhalus: desis 22 → 31 dB di bawah musik, kretek 4 → 2 per detik, goyang ±7 → ±3 sen, low-pass 4,2 → 6,5 kHz. Uji: 240 lagu, 150.115 nada iringan, 0 di luar akor septim.
 - **Sumber lagu** (pilihan "Sumber" di UI):
   - *Kit orisinal* (pilihan pengguna): 12 kit empat birama di `studio.js` (`kits`), terdiri dari 8 kit utama ("a") dan 4 kit kontras ("b"). `planSong` merangkai kit utama, bagian kontras, lalu kit utama lagi, dan menutup lagu.
@@ -49,6 +49,7 @@ Cara kerja dengan pengguna: pengguna tidak membaca not dan tidak menilai nada. S
   - Uji: 103.184 nada iringan dan 1.200 melodi, 0 nada di luar akor. Volume per bagian berubah paling banyak 2 dB.
 - **Durasi**: 30 detik, 1, 2, 3, dan 5 menit. Klasik panjang menyambung beberapa korale (masing-masing dua kali) dengan tempo tetap 71 BPM; korale terakhir dipilih yang paling pas dengan sisa waktu.
 - **Kecepatan**: nada dijadwalkan bertahap (`pump` saat diputar, `audio.suspend` saat render), dan nada yang selesai dilepas. Render 5 menit turun dari 112–140 detik menjadi sekitar 16 detik, dengan hasil suara identik (selisih −77 dB).
+- **Pop** (gaya Cerah, Lari pagi untuk Ceria; Balada, Hangat untuk Tenang): piano `pulsa` (akor tiap ketukan), bass `delapan` (berdenyut per seperdelapan), drum `pop` (kick 1 dan 3, snare 2 dan 4, hi-hat rapat) dan `balada` (snare di ketukan 3). Uji: 160 lagu, 151.896 nada iringan, 0 di luar akor. Belum didengar pengguna.
 - **Rangkaian** (CLI `rangkaian`): lagu berseed berurutan, di-master satu per satu, disambung dengan tumpang-tindih `--jeda` (bawaan 2 detik), ditulis langsung ke disk. Juga menyimpan daftar bab YouTube (.txt) dan .json. Hanya diuji singkat (1 menit); pengguna minta rangkaian 60 menit tidak dicoba dulu.
 - **Mix dan mastering**:
   - Gema ruangan buatan (`roomImpulse`, sekitar 2 detik, ber-seed sehingga hasilnya selalu sama), dikirim per instrumen (`placement.room`).
@@ -83,7 +84,6 @@ Cara kerja dengan pengguna: pengguna tidak membaca not dan tidak menilai nada. S
 
 ## Berikutnya (urut prioritas)
 
-1. **Genre Pop** di mesin kit (Akustik dan Lo-fi sudah).
-2. **Mood Melankolis.** Kit bernada minor dengan format yang sama, plus gaya yang cocok.
-3. **Simpan dan buka proyek di aplikasi web** dengan format `.json` yang sama dengan CLI (`--dari`).
-4. **Siap unggah**: ekspor per instrumen (stem), ekspor MIDI, dan video sederhana (gambar + audio). Volume standar YouTube sudah selesai.
+1. **Mood Melankolis.** Kit bernada minor dengan format yang sama, plus gaya yang cocok.
+2. **Simpan dan buka proyek di aplikasi web** dengan format `.json` yang sama dengan CLI (`--dari`).
+3. **Siap unggah**: ekspor per instrumen (stem), ekspor MIDI, dan video sederhana (gambar + audio). Volume standar YouTube sudah selesai.

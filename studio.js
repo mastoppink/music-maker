@@ -148,7 +148,13 @@ const styles = [
   // Lo-fi: swung eighths, jazz chords on piano, boom-bap drums, warm and slightly worn sound.
   { name:'Belajar',    genre:'Lo-fi',   mood:'Tenang', weight:2, feel:'panjang', bpm:[72,78], guitar:'petik',    piano:'jazz',  drum:'lofi', bass:'dua' },
   { name:'Malam',      genre:'Lo-fi',   mood:'Tenang', weight:1, feel:'asli',    bpm:[66,72], guitar:'petik',    piano:'jazz',  drum:'lofi', bass:'tahan' },
-  { name:'Kopi pagi',  genre:'Lo-fi',   mood:'Ceria',  weight:1, feel:'rapat',   bpm:[84,90], guitar:'genjreng', piano:'jazz',  drum:'lofi', bass:'dua' }
+  { name:'Kopi pagi',  genre:'Lo-fi',   mood:'Ceria',  weight:1, feel:'rapat',   bpm:[84,90], guitar:'genjreng', piano:'jazz',  drum:'lofi', bass:'dua' },
+  // Pop: steady beat, driving eighth-note bass and pulsing chords when cheerful; a spacious
+  // ballad feel when calm.
+  { name:'Cerah',      genre:'Pop',     mood:'Ceria',  weight:2, feel:'asli',    bpm:[100,108], guitar:'genjreng', piano:'pulsa', drum:'pop',    bass:'delapan' },
+  { name:'Lari pagi',  genre:'Pop',     mood:'Ceria',  weight:1, feel:'rapat',   bpm:[108,116], guitar:'genjreng', piano:'pecah', drum:'pop',    bass:'delapan' },
+  { name:'Balada',     genre:'Pop',     mood:'Tenang', weight:2, feel:'panjang', bpm:[66,72],   guitar:'petik',    piano:'blok',  drum:'balada', bass:'tahan' },
+  { name:'Hangat',     genre:'Pop',     mood:'Tenang', weight:1, feel:'asli',    bpm:[76,82],   guitar:'genjreng', piano:'pecah', drum:'balada', bass:'dua' }
 ];
 function pickStyle(mood, genre, r) {
   const pool = styles.filter(s => s.mood === mood && s.genre === genre);
@@ -307,11 +313,11 @@ function roles(bar) {
 // through the variations of the chosen pattern (variant number).
 const partOptions = {
   Gitar: { petik:'Petik', genjreng:'Genjreng' },
-  Piano: { blok:'Akor', pecah:'Akor dipecah', jazz:'Akor jazz' },
-  Bass:  { tahan:'Panjang', dua:'Dua nada' },
-  Drum:  { lembut:'Lembut', tipis:'Tipis', jalan:'Berjalan', lofi:'Lo-fi' }
+  Piano: { blok:'Akor', pecah:'Akor dipecah', jazz:'Akor jazz', pulsa:'Akor berdenyut' },
+  Bass:  { tahan:'Panjang', dua:'Dua nada', delapan:'Berdenyut' },
+  Drum:  { lembut:'Lembut', tipis:'Tipis', jalan:'Berjalan', lofi:'Lo-fi', pop:'Pop', balada:'Balada' }
 };
-const variationCount = { Gitar:{ petik:3, genjreng:2 }, Piano:{ blok:3, pecah:3, jazz:2 }, Bass:{ tahan:2, dua:2 }, Drum:{ lembut:2, tipis:2, jalan:2, lofi:2 } };
+const variationCount = { Gitar:{ petik:3, genjreng:2 }, Piano:{ blok:3, pecah:3, jazz:2, pulsa:2 }, Bass:{ tahan:2, dua:2, delapan:2 }, Drum:{ lembut:2, tipis:2, jalan:2, lofi:2, pop:2, balada:2 } };
 
 function fingerpick(events, bar, root, final, lift, quiet, turn, noBass, v = 0) {
   const grip = grips[root];
@@ -414,7 +420,14 @@ function arrange(name, variant = 0) {
         const top = Math.max(...phraseBars.map(n => pitch(n[2])));
         playMelody(song.harmony[bar].high && top + 12 <= 88 ? 12 : 0, .40);
       }
-      if (role.chords === 'Piano' && part === 'jazz') {
+      if (role.chords === 'Piano' && part === 'pulsa' && !final) {
+        // Chords on every beat (or with pushed off-beats), the pop piano pulse.
+        const soft = role.melody === 'Piano' ? .8 : 1;
+        const notes = role.bass ? [root + 2, root + 4, root + 7] : [root, root + 4, root + 7];
+        const hits = v === 0 ? [[0,1],[2,.8],[4,.9],[6,.8]] : [[0,1],[2,.8],[3,.7],[4,.9],[6,.8],[7,.7]];
+        for (const [step, level] of hits)
+          notes.forEach((x, i) => add(step, pitch(x) - 12, 1, (i ? .15 : .19) * soft * level, .01 + i * .008));
+      } else if (role.chords === 'Piano' && part === 'jazz') {
         // Seventh chords, lightly rolled. With a bass player the root is left out (3-5-7).
         const soft = role.melody === 'Piano' ? .8 : 1;
         const notes = role.bass ? [root + 2, root + 4, root + 6] : [root, root + 4, root + 6, root + 9];
@@ -466,12 +479,33 @@ function arrange(name, variant = 0) {
         if (part === 'genjreng') strum(events, bar, root, final, role.bass, v);
         else fingerpick(events, bar, root, final, lift, quiet, turn, role.bass, v);
       }
+    } else if (name === 'Bass' && role.bass && part === 'delapan' && !final) {
+      // Driving eighth notes on the root; variation 2 jumps up an octave near the end of the bar.
+      for (let st = 0; st < 8; st++) {
+        const up = v === 1 && st === 6;
+        add(st, pitch(root) - (up ? 12 : 24), .85, st % 4 === 0 ? .125 : .11, .01);
+      }
     } else if (name === 'Bass' && role.bass) {
       const two = part === 'dua' && !final;
       add(0, pitch(root) - 24, final ? 7.5 : two ? 3.8 : v === 1 ? 5.8 : 7.6, final ? .30 : .32, .01);
       if (two) add(4, pitch(root + 4) - 24, v === 1 ? 1.8 : 3.6, .29, .01);
       // Variation: a short octave note leading into the next bar.
       if (v === 1 && !final) add(6, pitch(root) - 12, 1.6, .26, .01);
+    } else if (name === 'Drum' && role.drums && part === 'pop') {
+      // Pop beat: kick on one and three, snare on two and four, eighth-note hats.
+      add(0, 'kick', .65, final ? .3 : .38);
+      if (final) continue;
+      add(4, 'kick', .55, .32);
+      if (v === 1) add(3, 'kick', .45, .24);
+      if (!cadence || v === 1) { add(2, 'snare', .34, .22); add(6, 'snare', .34, .22); }
+      for (let st = 0; st < 8; st++) add(st, 'hat', .18, st % 2 ? .06 : .085);
+    } else if (name === 'Drum' && role.drums && part === 'balada') {
+      // Ballad: one kick, a single snare on three, quarter-note hats; lots of space.
+      add(0, 'kick', .65, final ? .3 : .34);
+      if (final) continue;
+      if (v === 1) add(5, 'kick', .45, .22);
+      if (!cadence) add(4, 'snare', .34, .2);
+      for (const st of [2, 4, 6]) add(st, 'hat', .2, .07);
     } else if (name === 'Drum' && role.drums && part === 'lofi') {
       // Boom-bap: kick on one and later in the bar, snare on two and four, soft shaker eighths.
       add(0, 'kick', .65, final ? .3 : .38);
