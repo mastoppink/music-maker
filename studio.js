@@ -600,9 +600,7 @@ function onset(event) {
 
 function scheduleTrack(track, offset) {
   track.sources = [];
-  track.bus = ctx.createGain();
-  track.bus.gain.value = track.muted ? 0 : track.volume;
-  track.bus.connect(song.master);
+  track.bus = trackBus(ctx, track, song.master);
   for (const event of track.events) {
     const at = onset(event);
     if (at >= offset) voice(track,event,start+at,ctx,total()-at);
@@ -765,34 +763,155 @@ const ceilingCurve = Float32Array.from({length:8193},(_,i)=>{
   const magnitude = Math.abs(x);
   return magnitude <= .78 ? x : Math.sign(x)*(.78+.11*Math.tanh((magnitude-.78)/.11));
 });
-function masterBus(audio) {
-  const input = audio.createGain();
-  input.gain.value = song.masterGain;
-  const ceiling = audio.createWaveShaper();
-  ceiling.curve = ceilingCurve;
-  input.connect(ceiling).connect(audio.destination);
-  return input;
-}
-function mixGain(buffer) {
-  let energy=0, peak=0;
-  for (let c=0;c<buffer.numberOfChannels;c++) {
-    const samples=buffer.getChannelData(c);
-    for (const value of samples) {
-      energy+=value*value;
-      peak=Math.max(peak,Math.abs(value));
+// ---- Mix: room echo, left/right placement and final loudness ----
+// pan: -1 left .. 1 right. room: how much of the instrument is sent into the room echo.
+const placement = { Piano:{pan:-.22, room:.24}, Gitar:{pan:.26, room:.2}, Bass:{pan:0, room:.04}, Drum:{pan:.04, room:.12} };
+const roomLevel = .8;
+// YouTube plays music at about -14 LUFS; quieter songs are not turned up, so aim there.
+const targetLoudness = -14;
+// A small room: soft noise that fades over about two seconds and darkens as it fades.
+// Seeded, so the same song always renders the same way.
+function roomImpulse(audio) {
+  const rate = audio.sampleRate, length = Math.floor(rate * 2.4), pre = Math.floor(rate * .018);
+  const buffer = audio.createBuffer(2, length, rate);
+  for (let c = 0; c < 2; c++) {
+    const r = rng(1234 + c), data = buffer.getChannelData(c);
+    let low = 0;
+    for (let i = pre; i < length; i++) {
+      const t = (i - pre) / rate, k = Math.min(.9, .25 + t * .5);
+      low = low * k + (r() * 2 - 1) * (1 - k);
+      data[i] = low * Math.exp(-t * 3.2) * Math.min(1, t / .004);
     }
   }
-  if (peak<.00001) return 1;
-  const rms=Math.sqrt(energy/(buffer.length*buffer.numberOfChannels));
-  return Math.min(.08/rms,.84/peak);
+  return buffer;
+}
+// raw: unity gain and no ceiling, used to measure the mix before setting its level.
+function masterBus(audio, raw = false) {
+  const input = audio.createGain();
+  input.gain.value = raw ? 1 : song.masterGain;
+  const room = audio.createConvolver();
+  room.buffer = roomImpulse(audio);
+  const wet = audio.createGain();
+  wet.gain.value = roomLevel;
+  room.connect(wet).connect(input);
+  input.room = room;
+  if (raw) input.connect(audio.destination);
+  else {
+    const ceiling = audio.createWaveShaper();
+    ceiling.curve = ceilingCurve;
+    input.connect(ceiling).connect(audio.destination);
+  }
+  return input;
+}
+function trackBus(audio, track, master) {
+  const bus = audio.createGain();
+  bus.gain.value = track.muted ? 0 : track.volume;
+  const spot = placement[track.name] ?? { pan:0, room:.15 };
+  const pan = audio.createStereoPanner();
+  pan.pan.value = spot.pan;
+  const send = audio.createGain();
+  send.gain.value = spot.room;
+  bus.connect(pan).connect(master);
+  bus.connect(send).connect(master.room);
+  return bus;
+}
+// Integrated loudness in LUFS (ITU-R BS.1770: K-weighting, 400 ms blocks, gating).
+function loudness(buffer) {
+  const fs = buffer.sampleRate;
+  const biquad = (b, a) => x => {
+    const y = new Float32Array(x.length);
+    let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+    for (let i = 0; i < x.length; i++) {
+      const v = (b[0] * x[i] + b[1] * x1 + b[2] * x2 - a[1] * y1 - a[2] * y2) / a[0];
+      x2 = x1; x1 = x[i]; y2 = y1; y1 = v; y[i] = v;
+    }
+    return y;
+  };
+  let w = 2 * Math.PI * 1681.974450955533 / fs, A = 10 ** (3.999843853973347 / 40);
+  let al = Math.sin(w) / (2 * .7071752369554196), c = Math.cos(w), sq = 2 * Math.sqrt(A) * al;
+  const shelf = biquad([A * ((A + 1) + (A - 1) * c + sq), -2 * A * ((A - 1) + (A + 1) * c), A * ((A + 1) + (A - 1) * c - sq)],
+    [(A + 1) - (A - 1) * c + sq, 2 * ((A - 1) - (A + 1) * c), (A + 1) - (A - 1) * c - sq]);
+  w = 2 * Math.PI * 38.13547087602444 / fs; al = Math.sin(w) / (2 * .5003270373238773); c = Math.cos(w);
+  const high = biquad([(1 + c) / 2, -(1 + c), (1 + c) / 2], [1 + al, -2 * c, 1 - al]);
+  const channels = [];
+  for (let ch = 0; ch < buffer.numberOfChannels; ch++) channels.push(high(shelf(buffer.getChannelData(ch))));
+  const size = Math.floor(.4 * fs), hop = Math.floor(.1 * fs), blocks = [];
+  for (let at = 0; at + size <= buffer.length; at += hop) {
+    let sum = 0;
+    for (const y of channels) { let e = 0; for (let i = at; i < at + size; i++) e += y[i] * y[i]; sum += e / size; }
+    blocks.push(sum);
+  }
+  const lufs = z => -.691 + 10 * Math.log10(z);
+  const mean = list => list.reduce((a, b) => a + b, 0) / list.length;
+  const loud = blocks.filter(z => lufs(z) > -70);
+  if (!loud.length) return -70;
+  const relative = lufs(mean(loud)) - 10;
+  const gated = loud.filter(z => lufs(z) > relative);
+  return lufs(mean(gated));
+}
+// Look-ahead peak limiter for the exported file: turns brief peaks down smoothly so the
+// whole song can reach YouTube loudness. Peaks never pass `ceilingDb`.
+const ceilingDb = -1.5;
+function limit(buffer, gain) {
+  const n = buffer.length, data = [...Array(buffer.numberOfChannels)].map((_, c) => buffer.getChannelData(c));
+  const thr = 10 ** (ceilingDb / 20), look = Math.floor(buffer.sampleRate * .005), win = 2 * look;
+  const release = 1 - Math.exp(-1 / (buffer.sampleRate * .15));
+  const need = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    let peak = 0;
+    for (const d of data) peak = Math.max(peak, Math.abs(d[i] * gain));
+    need[i] = peak > thr ? thr / peak : 1;
+  }
+  // Lowest gain needed anywhere in the next `win` samples (sliding minimum).
+  const ahead = new Float32Array(n), queue = [];
+  for (let i = n - 1; i >= 0; i--) {
+    while (queue.length && need[queue[queue.length - 1]] >= need[i]) queue.pop();
+    queue.push(i);
+    while (queue[0] > i + win - 1) queue.shift();
+    ahead[i] = need[queue[0]];
+  }
+  // Drop at once (the look-ahead gives time), recover slowly, then smooth the curve.
+  const env = new Float32Array(n);
+  let g = 1;
+  for (let i = 0; i < n; i++) { g = Math.min(ahead[i], g + (1 - g) * release); env[i] = g; }
+  let sum = look * env[0], deepest = 1;
+  const out = new AudioBuffer({ length: n, numberOfChannels: data.length, sampleRate: buffer.sampleRate });
+  const outData = data.map((_, c) => out.getChannelData(c));
+  for (let i = 0; i < n; i++) {
+    sum += env[i] - (i >= look ? env[i - look] : env[0]);
+    const smooth = sum / look;
+    deepest = Math.min(deepest, smooth);
+    for (let c = 0; c < data.length; c++) outData[c][i] = data[c][i] * gain * smooth;
+  }
+  out.deepestDb = 20 * Math.log10(deepest);
+  return out;
+}
+// Final file: reach the target loudness, but never squash peaks by more than `maxSquashDb`.
+const maxSquashDb = 6;
+function master(raw) {
+  let gain = 10 ** ((targetLoudness - loudness(raw)) / 20), out;
+  for (let pass = 0; pass < 3; pass++) {
+    out = limit(raw, gain);
+    // Move toward the target loudness, but back off if peaks would be squashed too hard.
+    gain *= Math.min(10 ** ((targetLoudness - loudness(out)) / 20), 10 ** ((out.deepestDb + maxSquashDb) / 20));
+  }
+  out = limit(raw, gain);
+  out.loudness = loudness(out);
+  return out;
+}
+// Gain for listening in the app: as loud as the target allows without touching the ceiling.
+function mixGain(buffer) {
+  let peak = 0;
+  for (let c = 0; c < buffer.numberOfChannels; c++) for (const v of buffer.getChannelData(c)) peak = Math.max(peak, Math.abs(v));
+  if (peak < .00001) return 1;
+  return Math.min(10 ** ((targetLoudness - loudness(buffer)) / 20), 1 / peak);
 }
 async function renderMix(normalized) {
     const audio=new OfflineAudioContext(2,Math.ceil(total()*44100),44100);
-    const output=normalized ? masterBus(audio) : audio.destination;
+    const output=masterBus(audio,!normalized);
     for(const track of song.tracks){
       if(track.muted) continue;
-      const bus=audio.createGain();
-      bus.gain.value=track.volume;bus.connect(output);
+      const bus=trackBus(audio,track,output);
       for(const event of track.events){
         const when=onset(event);
         voice({...track,bus},event,when,audio,total()-when);
@@ -818,7 +937,7 @@ el('export').onclick=async()=>{
   const button=el('export');
   button.disabled=true;
   try {
-    const url=URL.createObjectURL(wav(await renderMix(true)));
+    const url=URL.createObjectURL(wav(master(await renderMix(false))));
     const link=document.createElement('a');link.href=url;link.download='music-maker.wav';link.click();
     setTimeout(()=>URL.revokeObjectURL(url),60000);
   } catch {el('message').textContent='Ekspor gagal. Coba ulangi atau pilih durasi lebih pendek.'}

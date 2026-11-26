@@ -22,7 +22,7 @@ Cara kerja dengan pengguna: pengguna tidak membaca not dan tidak menilai nada. S
   - Mood Melankolis dan genre Lo-fi dan Pop masih memakai mesin lama yang sederhana.
 - **Sumber lagu** (pilihan "Sumber" di UI):
   - *Kit orisinal* (pilihan pengguna): 12 kit empat birama di `studio.js` (`kits`), terdiri dari 8 kit utama ("a") dan 4 kit kontras ("b"). `planSong` merangkai kit utama, bagian kontras, lalu kit utama lagi, dan menutup lagu.
-  - *Klasik (Bach)*: 24 korale di `classics.js`. Pengguna lebih memilih Kit, jadi kandidat dihapus.
+  - *Klasik (Bach)*: 24 korale di `classics.js`. Pengguna mencoba keduanya dan menilai "lumayan bagus", jadi keduanya dipertahankan.
 - **Gaya lagu** (`styles`): setiap lagu memilih satu gaya yang menentukan irama melodi (`applyFeel`: asli / panjang / rapat), gitar (petik / genjreng), piano (blok / pecah), drum (lembut / tipis / jalan), dan tempo. Penutupnya dua macam (kadens V–I, atau bar kit lalu tonika), dengan atau tanpa melambat. Tempo gaya dipertahankan, jadi panjang lagu bisa bergeser beberapa detik.
   - Tenang: Santai (bobot 3, favorit pengguna), Mengalir, Teduh, Sederhana.
   - Ceria: Jalan pagi, Ringan. Jalan pagi paling tidak disukai untuk lagu tenang, jadi dipindah ke Ceria.
@@ -35,7 +35,13 @@ Cara kerja dengan pengguna: pengguna tidak membaca not dan tidak menilai nada. S
   - Drum: Lembut, Tipis, Berjalan (masing-masing 2 variasi).
   - Uji: 51.314 nada iringan dari semua pola dan variasi, 0 nada di luar akor. Volume antar pola setara (selisih maksimal ±2 dB).
 - **A/B**: setiap "Buat musik" menghasilkan dua versi.
-- **Ekspor**: WAV stereo 44,1 kHz dari seluruh mix.
+- **Mix dan mastering**:
+  - Gema ruangan buatan (`roomImpulse`, sekitar 2 detik, ber-seed sehingga hasilnya selalu sama), dikirim per instrumen (`placement.room`).
+  - Posisi kiri-kanan (`placement.pan`): piano −0,22, gitar +0,26, bass dan drum di tengah.
+  - Volume diukur dalam LUFS (`loudness`, ITU-R BS.1770, cocok dengan ffmpeg ±0,2 dB).
+  - Ekspor WAV melewati `master`: gain menuju −14 LUFS dan limiter look-ahead (`limit`, batas −1,5 dBFS, true peak sekitar −1,3). Penekanan puncak dibatasi 6 dB (`maxSquashDb`), jadi lagu yang sangat tenang bisa berakhir −15 sampai −17 LUFS.
+  - Putar di aplikasi memakai gain aman tanpa limiter.
+- **Ekspor**: WAV stereo 44,1 kHz.
 - **Uji otomatis**: 600 lagu per mood, 0 nada melodi di ketukan kuat yang bukan nada akor.
 
 ### Perbaikan suara yang sudah lolos dengar
@@ -51,6 +57,10 @@ Cara kerja dengan pengguna: pengguna tidak membaca not dan tidak menilai nada. S
 - Nada antar bass, dan bass yang masuk di ketukan pertama, pada etude piano lama.
 - Melodi yang disusun otomatis dengan aturan. Diganti kit tulis tangan.
 - Pemilihan 12 kit lewat A/B: semuanya terdengar mirip karena hanya melodi yang berbeda. Diganti gaya lagu.
+
+## Menunggu dengar
+
+- Uji buta gema ruangan dan kiri-kanan (volume disamakan di −20,3 LUFS). Lagu 1: A = baru. Lagu 2: B = baru.
 
 ## Berikutnya (urut prioritas)
 
