@@ -98,7 +98,8 @@ function settingsFrom(opts) {
     volume: opts.volume ? Object.fromEntries(Object.entries(pairs(opts.volume, 'volume')).map(([k, v]) => [k, Number(v)])) : base.volume ?? {},
     bisu: opts.bisu ? list(opts.bisu) : base.bisu ?? [],
     // Tune names from a saved project keep the song identical even after new kits are added.
-    ...(base.melodi_kit && opts.seed === undefined ? { melodi_kit: base.melodi_kit } : {})
+    ...(base.melodi_kit && opts.seed === undefined ? { melodi_kit: base.melodi_kit } : {}),
+    ...(base.dinamika ? { dinamika: base.dinamika } : {})
   };
   if (!['Tenang','Ceria','Melankolis'].includes(s.mood)) throw new Error('--mood harus Tenang, Ceria, atau Melankolis.');
   if (!['Akustik','Lo-fi','Pop','Jazz'].includes(s.genre)) throw new Error('--genre harus Akustik, Lo-fi, Pop, atau Jazz.');
@@ -155,7 +156,7 @@ function renderInPage(s) {
     for (const track of song.tracks) if (song.parts?.[track.name])
       variants[track.name] = (song.variants[track.name] ?? 0) % variationCount[track.name][song.parts[track.name]] + 1;
     return { description: describe(song), seconds: buf.duration, lufs: buf.loudness, peakDb: 20 * Math.log10(peak),
-      gaya: song.style?.name ?? null, pola: song.parts ?? {}, variasi: variants, kits: song.kitChoice ?? null, notes, size: window.__wav.length };
+      gaya: song.style?.name ?? null, pola: song.parts ?? {}, variasi: variants, kits: song.kitChoice ?? null, dynamics: song.dynamics, notes, size: window.__wav.length };
   };
 }
 
@@ -223,7 +224,7 @@ async function make(opts) {
       const file = path.join(outDir, name + '.wav');
       fs.writeFileSync(file, await fetchWav(page, info.size));
       // Settings file: the exact pattern and variation used, so --dari reproduces this song.
-      const saved = { ...s, gaya: info.gaya ?? s.gaya, pola: info.pola, variasi: info.variasi, ...(info.kits ? { melodi_kit: info.kits } : {}) };
+      const saved = { ...s, gaya: info.gaya ?? s.gaya, pola: info.pola, variasi: info.variasi, ...(info.kits ? { melodi_kit: info.kits } : {}), dinamika: info.dynamics };
       fs.writeFileSync(path.join(outDir, name + '.json'), JSON.stringify(saved, null, 2) + '\n');
       const min = Math.floor(info.seconds / 60), sec = Math.round(info.seconds % 60);
       console.log(`selesai dalam ${Math.round((Date.now() - started) / 1000)} detik`);

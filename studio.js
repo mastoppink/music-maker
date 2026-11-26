@@ -665,6 +665,7 @@ function arrange(name, variant = 0) {
         if (degree === null) continue;   // a rest: the player breathes
         const strong = onset % 4 === 0;
         add(onset, pitch(degree) + octave, final ? 7.6 : len, base + (strong ? .06 : 0), strong ? .03 : .015, boost);
+        events[events.length - 1].tune = true;
       }
     };
     if (name === 'Piano') {
@@ -928,8 +929,33 @@ function articulateGuitar(events) {
   }
   return events;
 }
+// ---- Phrasing: loudness that breathes like a player, not a machine ----
+// Each four-bar phrase swells toward its middle and eases off at the end; higher melody
+// notes are reached for a little harder; quiet sections sit lower and full ones higher.
+// The tune gets the full shape, accompaniment less, drums least, so the beat stays even.
+// Values in dB. 'sedang' and 'kuat' are the two strengths offered for listening.
+const dynamicsLevels = { tanpa:{ arch:0, reach:0, section:0 }, sedang:{ arch:3, reach:1.5, section:1.5 }, kuat:{ arch:5, reach:2.5, section:2.5 } };
+const dynamicsShare = { Piano:.6, Gitar:.6, Bass:.5, String:.8, Drum:.35 };
+function shapeDynamics(name, events) {
+  const d = dynamicsLevels[song.dynamics] ?? dynamicsLevels.tanpa;
+  if (!d.arch && !d.section) return;
+  const tune = events.filter(e => e.tune && typeof e.note === 'number');
+  const phraseMean = {};
+  for (const e of tune) { const ph = Math.floor(e.step / 32); (phraseMean[ph] ??= []).push(e.note); }
+  for (const ph in phraseMean) phraseMean[ph] = phraseMean[ph].reduce((a, b) => a + b, 0) / phraseMean[ph].length;
+  for (const e of events) {
+    const bar = Math.min(song.harmony.length - 1, Math.floor(e.step / 8)), ph = Math.floor(e.step / 32);
+    const x = (e.step - ph * 32) / 32;
+    const share = e.tune ? 1 : dynamicsShare[name] ?? .5;
+    const energy = song.harmony[bar].energy ?? 1;
+    let db = d.arch * 2 * (Math.sin(Math.PI * x) - .5) * share + d.section * (energy - 1) * share;
+    if (e.tune && phraseMean[ph] !== undefined) db += Math.max(-d.reach, Math.min(d.reach, d.reach * (e.note - phraseMean[ph]) / 7));
+    e.expr = db;
+  }
+}
 function pattern(name) {
   const events = compose(name);
+  if (song.harmony) shapeDynamics(name, events);
   if (name === 'Piano' && song.harmony) {
     // Sustain pedal: each note keeps sounding until the chord changes at the bar line.
     for (const e of events) e.len = Math.max(e.len, Math.floor(e.step / 8) * 8 + 8 - e.step);
@@ -990,7 +1016,7 @@ function voice(track,event,when,audio=ctx,remaining=total()-(when-start)) {
     : drum ? Math.sqrt(event.level*.4) * .9 / sample.lift * 10 ** ((drumBalance[event.note] ?? 0) / 20)
     : Math.sqrt(event.level*.4);
   const peak = ({ Piano:.55, Gitar:.59, Bass:.68, Drum:.62, String:stringPeak })[track.name] * shaped
-    * (trackTrim[track.name] ?? 1) * (event.boost ?? 1);
+    * (trackTrim[track.name] ?? 1) * (event.boost ?? 1) * 10 ** ((event.expr ?? 0) / 20);
   // Strings swell in gently instead of starting at full strength.
   const attack = track.name === 'String' ? Math.min(.4, length / 3) : 0;
   if (attack) { gain.gain.setValueAtTime(0,when); gain.gain.linearRampToValueAtTime(peak,when+attack); }
@@ -1073,7 +1099,7 @@ function newSong({genre,mood,duration,names,seed,source='kit',onlyKit=null,piano
   // force.kits: tune names saved in a project (main, middle, main2, middle2).
   const bpm=({Tenang:78,Ceria:112,Melankolis:68})[mood]+({'Lo-fi':-6,Akustik:0,Pop:10})[genre];
   const r=rng(seed), choose=list=>list[Math.floor(r()*list.length)];
-  song={genre,mood,seed,duration,requested:duration,source,onlyKit,pianoMelody,vary,kitChoice:force.kits,step:30/bpm,minor:mood==='Melankolis',
+  song={genre,mood,seed,duration,requested:duration,source,onlyKit,pianoMelody,vary,kitChoice:force.kits,dynamics:force.dynamics ?? dynamicsDefault,step:30/bpm,minor:mood==='Melankolis',
     key:choose([60,62,65,67]),chords:choose([[0,3,5,4],[0,5,3,4],[0,4,5,3]]),
     tracks:names.map(name=>({name,events:[],volume:.7,muted:false})),harmony:null,variants:{}};
   if (source==='klasik') {
@@ -1150,7 +1176,7 @@ function projectOf(s) {
     variasi:s.parts ? Object.fromEntries(Object.keys(s.parts).filter(played).map(n => [n, (s.variants[n] ?? 0) % variationCount[n][s.parts[n]] + 1])) : {},
     volume:Object.fromEntries(s.tracks.map(t => [t.name, Math.round(t.volume * 100)])),
     bisu:s.tracks.filter(t => t.muted).map(t => t.name),
-    ...(s.kitChoice ? { melodi_kit:s.kitChoice } : {}) };
+    ...(s.kitChoice ? { melodi_kit:s.kitChoice } : {}), dinamika:s.dynamics };
 }
 // Builds `song` from a project. Returns { error } or { notes } (things that were ignored).
 async function songFromProject(p) {
@@ -1165,7 +1191,7 @@ async function songFromProject(p) {
   const force = { parts:p.pola ?? {} };
   if (p.gaya) force.style = p.gaya;
   newSong({ genre:p.genre ?? 'Akustik', mood:p.mood ?? 'Tenang', duration:Number(p.durasi ?? 60), names, seed:Number(p.seed ?? 0),
-    source:p.sumber ?? 'kit', pianoMelody:p.melodi === 'piano', force:{ ...force, kits:p.melodi_kit } });
+    source:p.sumber ?? 'kit', pianoMelody:p.melodi === 'piano', force:{ ...force, kits:p.melodi_kit, dynamics:p.dinamika } });
   const notes = [];
   if (!song.parts && (Object.keys(p.pola ?? {}).length || Object.keys(p.variasi ?? {}).length || p.gaya))
     notes.push('Gaya, pola, dan variasi hanya berlaku untuk sumber kit; diabaikan.');
@@ -1395,6 +1421,8 @@ function crackleBuffer(audio, seconds) {
 // supaya tetap enak didengarkan lama"): less noise, fewer crackles, less wobble, brighter tone.
 // Studio mixing on/off (channel EQ and compression, mix glue). Measured and A/B tested.
 const studioMix = true;
+// Phrasing strength (see dynamicsLevels); chosen by listening.
+const dynamicsDefault = 'sedang';
 const glue = [-24, 1.6, .03, .3];
 const lofi = { crackle:.28, popsPerSecond:2, popSize:.09, wobbleCents:3, toneHz:6500 };
 // when/offset: where the crackle starts in the audio clock and how far into the song.
