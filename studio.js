@@ -281,7 +281,7 @@ function arrange(name, variant = 0) {
         fingerpick(events, bar, root, final, lift, quiet, turn, role.bass);
       }
     } else if (name === 'Bass' && role.bass) {
-      add(0, pitch(root) - 24, final ? 7.5 : 5.5, final ? .30 : .32, .01);
+      add(0, pitch(root) - 24, final ? 7.5 : 7.6, final ? .30 : .32, .01);
     } else if (name === 'Drum' && role.drums) {
       add(0, 'kick', .65, final ? .30 : .36);
       if (final) continue;
@@ -353,7 +353,11 @@ function articulateGuitar(events) {
       + (at-(ringing.get(s.string)?.at ?? -10)<.10 ? 12 : 0);
     const sample = choices.reduce((a,b)=>score(a)<=score(b)?a:b);
     const last = ringing.get(sample.string);
-    if (last) last.event.ring = Math.min(last.event.ring,Math.max(.009,at-last.at));
+    if (last && at-last.at < last.event.ring) {
+      // Same string plucked again: the new note takes over quickly but not with a click.
+      last.event.ring = Math.max(.009,at-last.at);
+      last.event.release = .07;
+    }
     let boundary = Math.floor(event.step/8)+1;
     while(boundary<bars) {
       const sameChord = chord(boundary)===chord(boundary-1);
@@ -361,7 +365,9 @@ function articulateGuitar(events) {
       if (!sameChord && !heldFret) break;
       boundary++;
     }
-    event.ring = Math.max(.03,Math.min(song.duration,onset({step:boundary*8,delay:0}))-at);
+    event.ring = Math.max(.03,Math.min(total(),onset({step:boundary*8,delay:0}))-at);
+    // Let a chord's notes die away gently when the hand moves to the next chord.
+    event.release = .3;
     event.sample = sample;
     previous.set(event.note,sample.string);
     ringing.set(sample.string,{event,at});
@@ -370,6 +376,10 @@ function articulateGuitar(events) {
 }
 function pattern(name) {
   const events = compose(name);
+  if (name === 'Piano' && song.harmony) {
+    // Sustain pedal: each note keeps sounding until the chord changes at the bar line.
+    for (const e of events) e.len = Math.max(e.len, Math.floor(e.step / 8) * 8 + 8 - e.step);
+  }
   return name === 'Gitar' ? articulateGuitar(events) : events;
 }
 // Choose the recorded dynamic layer from how hard the note is played, then the
@@ -390,7 +400,7 @@ function pickSample(name,samples,event) {
   const turn = Math.floor(event.step*3+(typeof event.note==='number'?event.note:0)) % best.length;
   return best[turn];
 }
-function voice(track,event,when,audio=ctx,remaining=song.duration-(when-start)) {
+function voice(track,event,when,audio=ctx,remaining=total()-(when-start)) {
   const drum = track.name==='Drum';
   const samples = bank[track.name];
   const sample = event.sample ?? pickSample(track.name,samples,event);
@@ -399,9 +409,9 @@ function voice(track,event,when,audio=ctx,remaining=song.duration-(when-start)) 
   const rate = drum ? 1 : 2 ** ((event.note - sample.midi) / 12);
   source.playbackRate.value = rate;
   if (track.name === 'Gitar') source.detune.value = -(guitarCents[sample.key] ?? 0);
-  const release = ({ Piano:.58, Gitar:.045, Bass:.10, Drum:.03 })[track.name];
+  const release = event.release ?? ({ Piano:.58, Gitar:.07, Bass:.16, Drum:.03 })[track.name];
   const length = Math.min(remaining, sample.buffer.duration/rate,
-    event.ring ?? (drum ? sample.buffer.duration : event.len * song.step + release));
+    event.ring != null ? event.ring + release : drum ? sample.buffer.duration : event.len * song.step + release);
   if (length < .01) return;
   const gain = audio.createGain();
   const tone = audio.createBiquadFilter();
@@ -426,7 +436,10 @@ function voice(track,event,when,audio=ctx,remaining=song.duration-(when-start)) 
 }
 
 function clock(t) {return Math.floor(t/60)+':'+String(Math.floor(t%60)).padStart(2,'0')}
-function display(t) {el('time').textContent=clock(t)+' / '+clock(song.duration)}
+// Extra seconds after the last beat so the final chord can fade out naturally.
+const tail = 3;
+const total = () => song.duration + tail;
+function display(t) {el('time').textContent=clock(t)+' / '+clock(total())}
 function halt(offset=0) {
   clearInterval(timer);
   timer=null;
@@ -454,7 +467,7 @@ function scheduleTrack(track, offset) {
   track.bus.connect(song.master);
   for (const event of track.events) {
     const at = onset(event);
-    if (at >= offset) voice(track,event,start+at,ctx,song.duration-at);
+    if (at >= offset) voice(track,event,start+at,ctx,total()-at);
   }
 }
 
@@ -465,7 +478,7 @@ function play() {
   el('play').textContent = 'Jeda';
   timer = setInterval(() => {
     const elapsed = ctx.currentTime - start;
-    if (elapsed >= song.duration) halt();
+    if (elapsed >= total()) halt();
     else display(Math.max(0,elapsed));
   },100);
 }
@@ -582,7 +595,7 @@ function mixGain(buffer) {
   return Math.min(.08/rms,.84/peak);
 }
 async function renderMix(normalized) {
-    const audio=new OfflineAudioContext(2,song.duration*44100,44100);
+    const audio=new OfflineAudioContext(2,Math.ceil(total()*44100),44100);
     const output=normalized ? masterBus(audio) : audio.destination;
     for(const track of song.tracks){
       if(track.muted) continue;
@@ -590,7 +603,7 @@ async function renderMix(normalized) {
       bus.gain.value=track.volume;bus.connect(output);
       for(const event of track.events){
         const when=onset(event);
-        voice({...track,bus},event,when,audio,song.duration-when);
+        voice({...track,bus},event,when,audio,total()-when);
       }
     }
     return audio.startRendering();
