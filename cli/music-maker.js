@@ -132,32 +132,11 @@ async function openStudio(browser) {
 // Render one song inside the page and return its description; WAV bytes stay in the page.
 function renderInPage(s) {
   return async s => {
-    const names = s.instrumen;
-    const fail = text => ({ error: text });
-    for (const n of names) if (!sampleData[n]) return fail(`Instrumen tidak dikenal: ${n}. Pilihan: ${Object.keys(sampleData).join(', ')}.`);
-    if (s.gaya && !styles.some(x => x.name === s.gaya)) return fail(`Gaya tidak dikenal: ${s.gaya}. Pilihan: ${styles.map(x => x.name).join(', ')}.`);
-    for (const [n, p] of Object.entries(s.pola)) {
-      if (!partOptions[n]) return fail(`Instrumen tidak punya pola: ${n}.`);
-      if (!partOptions[n][p]) return fail(`Pola ${n} tidak dikenal: ${p}. Pilihan: ${Object.keys(partOptions[n]).join(', ')}.`);
-    }
+    // Same project reader as the web app's "Buka proyek".
     ctx = new OfflineAudioContext(2, 44100, 44100);
-    for (const n of names) await loadBank(n);
-    const force = { parts: s.pola };
-    if (s.gaya) force.style = s.gaya;
-    newSong({ genre: s.genre, mood: s.mood, duration: s.durasi, names, seed: s.seed, source: s.sumber,
-      pianoMelody: s.melodi === 'piano', force });
-    const notes = [];
-    if (!song.parts && (Object.keys(s.pola).length || Object.keys(s.variasi).length || s.gaya))
-      notes.push('Gaya, pola, dan variasi hanya berlaku untuk sumber kit dengan genre dan mood yang punya gaya (lihat "daftar"); diabaikan.');
-    for (const track of song.tracks) {
-      const v = s.variasi[track.name];
-      if (v && song.parts?.[track.name]) {
-        song.variants[track.name] = v - 1;
-        track.events = pattern(track.name);
-      }
-      if (s.volume[track.name] !== undefined) track.volume = s.volume[track.name] / 100;
-      track.muted = s.bisu.includes(track.name);
-    }
+    const result = await songFromProject(s);
+    if (result.error) return { error: result.error };
+    const notes = result.notes;
     const buf = master(await renderMix(false));
     let peak = 0;
     for (let c = 0; c < buf.numberOfChannels; c++) for (const x of buf.getChannelData(c)) peak = Math.max(peak, Math.abs(x));

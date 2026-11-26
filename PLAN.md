@@ -50,6 +50,8 @@ Cara kerja dengan pengguna: pengguna tidak membaca not dan tidak menilai nada. S
 - **Kecepatan**: nada dijadwalkan bertahap (`pump` saat diputar, `audio.suspend` saat render), dan nada yang selesai dilepas. Render 5 menit turun dari 112–140 detik menjadi sekitar 16 detik, dengan hasil suara identik (selisih −77 dB).
 - **Pop** (gaya Cerah, Lari pagi untuk Ceria; Balada, Hangat untuk Tenang): piano `pulsa` (akor tiap ketukan), bass `delapan` (berdenyut per seperdelapan), drum `pop` (kick 1 dan 3, snare 2 dan 4, hi-hat rapat) dan `balada` (snare di ketukan 3). Uji: 160 lagu, 151.896 nada iringan, 0 di luar akor. Belum didengar pengguna.
 - **Melankolis** (gaya Sendu, Kenangan untuk Akustik; Gerimis untuk Lo-fi; Patah hati untuk Pop): 6 kit minor tulis tangan (Sepi, Kenang, Rintik, Pulang; Malam Panjang, Lirih), tangga nada minor alami (`minorSteps`), bentuk akor gitar minor dari A (`minorGrips`, `capoAt`), nada dasar 57/59/60/62. Uji: 240 lagu, 85.480 nada iringan, 0 di luar akor. Belum didengar pengguna.
+- **Proyek** (`projectOf`, `songFromProject`, tombol Simpan/Buka proyek): format `.json` yang sama dengan CLI. CLI memakai `songFromProject` yang sama. Uji bolak-balik: simpan, buka di halaman baru, lagu identik; WAV aplikasi dan CLI dari proyek yang sama selisih paling besar 2 LSB.
+  - Perbaikan bug saat uji ini: memaksa gaya dulu menggeser urutan acak (tempo, penutup). Sekarang `pickStyle` selalu diambil. Lagu lama yang dibuat dengan `--gaya`/`force.style` bisa sedikit berbeda kalau dibuat ulang.
 - **Rangkaian** (CLI `rangkaian`): lagu berseed berurutan, di-master satu per satu, disambung dengan tumpang-tindih `--jeda` (bawaan 2 detik), ditulis langsung ke disk. Juga menyimpan daftar bab YouTube (.txt) dan .json. Hanya diuji singkat (1 menit); pengguna minta rangkaian 60 menit tidak dicoba dulu.
 - **Mix dan mastering**:
   - Gema ruangan buatan (`roomImpulse`, sekitar 2 detik, ber-seed sehingga hasilnya selalu sama), dikirim per instrumen (`placement.room`).
@@ -84,5 +86,4 @@ Cara kerja dengan pengguna: pengguna tidak membaca not dan tidak menilai nada. S
 
 ## Berikutnya (urut prioritas)
 
-1. **Simpan dan buka proyek di aplikasi web** dengan format `.json` yang sama dengan CLI (`--dari`).
-2. **Siap unggah**: ekspor per instrumen (stem), ekspor MIDI, dan video sederhana (gambar + audio). Volume standar YouTube sudah selesai.
+1. **Siap unggah**: ekspor per instrumen (stem), ekspor MIDI, dan video sederhana (gambar + audio). Volume standar YouTube sudah selesai.

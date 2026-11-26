@@ -19,6 +19,7 @@ Keduanya memakai mesin musik yang sama (`studio.js`), jadi pengaturan yang sama 
    - **Volume** dan **Bisukan**.
    - **Buat ulang**: pindah ke variasi lain dari pola itu. Instrumen lain tidak berubah.
 5. Tekan **Unduh WAV** untuk menyimpan hasilnya.
+6. Tekan **Simpan proyek** untuk menyimpan pengaturan lagu (`.json`). Dengan **Buka proyek**, lagu itu bisa dibuat persis sama lagi, termasuk pola, variasi, volume, dan instrumen yang dibisukan. Format file proyeknya sama dengan CLI, jadi proyek dari aplikasi bisa dipakai di CLI (`--dari`) dan sebaliknya.
 
 ### Pilihan
 

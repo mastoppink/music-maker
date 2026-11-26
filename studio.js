@@ -801,7 +801,7 @@ function play() {
 function newSong({genre,mood,duration,names,seed,source='kit',onlyKit=null,pianoMelody=false,force={},vary={}}) {
   const bpm=({Tenang:78,Ceria:112,Melankolis:68})[mood]+({'Lo-fi':-6,Akustik:0,Pop:10})[genre];
   const r=rng(seed), choose=list=>list[Math.floor(r()*list.length)];
-  song={genre,mood,seed,duration,source,onlyKit,pianoMelody,vary,step:30/bpm,minor:mood==='Melankolis',
+  song={genre,mood,seed,duration,requested:duration,source,onlyKit,pianoMelody,vary,step:30/bpm,minor:mood==='Melankolis',
     key:choose([60,62,65,67]),chords:choose([[0,3,5,4],[0,5,3,4],[0,4,5,3]]),
     tracks:names.map(name=>({name,events:[],volume:.7,muted:false})),harmony:null,variants:{}};
   if (source==='klasik') {
@@ -840,7 +840,10 @@ function newSong({genre,mood,duration,names,seed,source='kit',onlyKit=null,piano
   if (acoustic) {
     // Character of this song; separate random stream so kits and key stay as before.
     const r2=rng(seed^0x51ed), pick2=list=>list[Math.floor(r2()*list.length)];
-    song.style=styles.find(s=>s.name===force.style) ?? pickStyle(mood,genre,r2);
+    // Always draw the style so the random stream (tempo, ending) is the same whether or not
+    // a style is forced; forcing the style the seed would pick gives the identical song.
+    const drawn=pickStyle(mood,genre,r2);
+    song.style=styles.find(s=>s.name===force.style) ?? drawn;
     const [lo,hi]=song.style.bpm;
     song.step=30/(lo+r2()*(hi-lo));
     song.ending=force.ending ?? pick2(['kadens','kit']);
@@ -864,6 +867,79 @@ function newSong({genre,mood,duration,names,seed,source='kit',onlyKit=null,piano
   for (const track of song.tracks) track.events=pattern(track.name);
   return song;
 }
+// ---- Project files (.json), the same format the CLI reads and writes ----
+// mood, genre, sumber, durasi (requested seconds), instrumen, melodi, seed, gaya,
+// pola, variasi (from 1), volume (0-100), bisu (muted instruments).
+function projectOf(s) {
+  const played = n => s.tracks.some(t => t.name === n);
+  return { mood:s.mood, genre:s.genre, sumber:s.source, durasi:s.requested, instrumen:s.tracks.map(t => t.name),
+    melodi:s.pianoMelody ? 'piano' : 'gantian', seed:s.seed, gaya:s.style?.name ?? null,
+    pola:s.parts ? Object.fromEntries(Object.entries(s.parts).filter(([n]) => played(n))) : {},
+    variasi:s.parts ? Object.fromEntries(Object.keys(s.parts).filter(played).map(n => [n, (s.variants[n] ?? 0) % variationCount[n][s.parts[n]] + 1])) : {},
+    volume:Object.fromEntries(s.tracks.map(t => [t.name, Math.round(t.volume * 100)])),
+    bisu:s.tracks.filter(t => t.muted).map(t => t.name) };
+}
+// Builds `song` from a project. Returns { error } or { notes } (things that were ignored).
+async function songFromProject(p) {
+  const names = p.instrumen ?? instruments;
+  for (const n of names) if (!sampleData[n]) return { error:`Instrumen tidak dikenal: ${n}. Pilihan: ${Object.keys(sampleData).join(', ')}.` };
+  if (p.gaya && !styles.some(x => x.name === p.gaya)) return { error:`Gaya tidak dikenal: ${p.gaya}. Pilihan: ${styles.map(x => x.name).join(', ')}.` };
+  for (const [n, part] of Object.entries(p.pola ?? {})) {
+    if (!partOptions[n]) return { error:`Instrumen tidak punya pola: ${n}.` };
+    if (!partOptions[n][part]) return { error:`Pola ${n} tidak dikenal: ${part}. Pilihan: ${Object.keys(partOptions[n]).join(', ')}.` };
+  }
+  for (const n of names) await loadBank(n);
+  const force = { parts:p.pola ?? {} };
+  if (p.gaya) force.style = p.gaya;
+  newSong({ genre:p.genre ?? 'Akustik', mood:p.mood ?? 'Tenang', duration:Number(p.durasi ?? 60), names, seed:Number(p.seed ?? 0),
+    source:p.sumber ?? 'kit', pianoMelody:p.melodi === 'piano', force });
+  const notes = [];
+  if (!song.parts && (Object.keys(p.pola ?? {}).length || Object.keys(p.variasi ?? {}).length || p.gaya))
+    notes.push('Gaya, pola, dan variasi hanya berlaku untuk sumber kit; diabaikan.');
+  for (const track of song.tracks) {
+    const v = p.variasi?.[track.name];
+    if (v && song.parts?.[track.name]) { song.variants[track.name] = v - 1; track.events = pattern(track.name); }
+    if (p.volume?.[track.name] !== undefined) track.volume = p.volume[track.name] / 100;
+    track.muted = (p.bisu ?? []).includes(track.name);
+  }
+  return { notes };
+}
+function download(blob, name) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url; link.download = name; link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+const fileBase = s => `${s.mood}-${s.genre}-${s.source}-seed${s.seed}`.toLowerCase().replace(/[^a-z0-9-]+/g, '-');
+el('save').onclick = () => {
+  if (!song) return;
+  download(new Blob([JSON.stringify(projectOf(song), null, 2) + '\n'], { type:'application/json' }), fileBase(song) + '.json');
+  el('message').textContent = 'Proyek disimpan. Buka lagi dengan "Buka proyek", atau di CLI dengan --dari.';
+};
+el('open').onchange = async () => {
+  const file = el('open').files[0];
+  el('open').value = '';
+  if (!file) return;
+  try {
+    const p = JSON.parse(await file.text());
+    ctx ??= new AudioContext();
+    await ctx.resume();
+    if (song) halt();
+    el('message').textContent = 'Membuka proyek…';
+    const result = await songFromProject(p);
+    if (result.error) { el('message').textContent = 'Proyek tidak bisa dibuka: ' + result.error; return; }
+    // Show the project's settings in the form too.
+    for (const [id, value] of [['mood', song.mood], ['genre', song.genre], ['source', song.source], ['melody', song.pianoMelody ? 'piano' : 'gantian']]) el(id).value = value;
+    if (![...el('duration').options].some(o => Number(o.value) === song.requested)) el('duration').add(new Option(song.requested + ' detik', song.requested));
+    el('duration').value = String(song.requested);
+    for (const box of el('choices').querySelectorAll('input')) box.checked = song.tracks.some(t => t.name === box.value);
+    song.masterGain = mixGain(await renderMix(false));
+    versions = [song];
+    showVersion(0);
+    el('message').textContent = 'Proyek dibuka: ' + describe(song) + (result.notes.length ? ' · ' + result.notes.join(' ') : '');
+  } catch { el('message').textContent = 'File ini bukan proyek Music Maker yang valid.'; }
+};
+
 let versions=[];
 function describe(s) {
   const what = s.chorale ? 'Korale Bach #'+[...new Set(s.passes.map(p=>p.id))].join(', #') : s.kitNames ? 'Gaya '+s.style.name+' · Kit '+s.kitNames.join(' + ') : s.genre+' · '+s.mood;
@@ -875,6 +951,8 @@ function showVersion(i) {
   position=0;
   song=versions[i];
   ['versionA','versionB'].forEach((id,j)=>el(id).classList.toggle('primary',j===i));
+  el('versionB').hidden = versions.length < 2;
+  el('versionA').hidden = versions.length < 2;
   render();play();
   el('message').textContent='Versi '+'AB'[i]+': '+describe(song);
 }
