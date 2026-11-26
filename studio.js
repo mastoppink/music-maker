@@ -4,7 +4,7 @@ let ctx, song, timer, start, position = 0, next = 0;
 const pick = items => items[Math.floor(Math.random()*items.length)];
 for (const name of instruments) {
   const label = document.createElement('label');
-  label.innerHTML = '<input type="checkbox" '+(name==='Piano'?'':'checked')+' value="'+name+'"> '+name;
+  label.innerHTML = '<input type="checkbox" checked value="'+name+'"> '+name;
   el('choices').append(label);
 }
 
