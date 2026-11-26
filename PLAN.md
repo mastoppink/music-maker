@@ -7,7 +7,7 @@ Generator musik instrumental untuk dipakai sendiri, dan hasil musiknya bisa diju
 ## Keadaan sekarang (2026-11-26)
 
 - **Sumber lagu** (pilihan "Sumber" di UI):
-  - *Kit orisinal*: enam kit empat birama tulisan tangan di `studio.js` (`kits`). Ada empat kit utama ("a") dan dua kit kontras ("b"). `planSong` merangkai kit utama, lalu bagian kontras, lalu kit utama lagi, dan menutup dengan kadens V–I. Berlaku untuk Akustik · Tenang.
+  - *Kit orisinal*: dua belas kit empat birama tulisan tangan di `studio.js` (`kits`). Ada delapan kit utama ("a") dan empat kit kontras ("b"). Kit baru: Embun, Kabut, Senja, Pelangi (a), Hujan, Angin (b). `planSong` merangkai kit utama, lalu bagian kontras, lalu kit utama lagi, dan menutup dengan kadens V–I. Berlaku untuk Akustik · Tenang.
   - *Klasik (Bach)*: 24 korale empat suara bernada mayor di `classics.js`, diambil dari JSB Chorales dataset. Komposisinya bebas hak cipta. `arrangeChorale` membagi suara: sopran untuk melodi, alto dan tenor untuk iringan, bas untuk bass.
 - **Peran**: bass memegang nada dasar. Piano dan gitar bergantian membawa melodi per frasa. Bass dan drum masuk setelah frasa pertama.
 - **A/B**: setiap "Buat musik" menghasilkan dua versi (seed berurutan). Seed tampil di pesan status.
@@ -20,7 +20,7 @@ Generator musik instrumental untuk dipakai sendiri, dan hasil musiknya bisa diju
 
 ## Berikutnya
 
-1. Pengguna menilai `contoh/kit-*.wav` dan `contoh/klasik-*.wav`. Kit atau korale yang disukai ditandai, yang tidak disukai dibuang.
+1. Pengguna sudah memilih Kit orisinal daripada Klasik. Sekarang menyaring 12 kit lewat halaman A/B (12 pilihan, dua putaran). Kit dengan 0 kemenangan dibuang. `newSong({onlyKit})` memutar satu kit saja untuk audisi.
 2. Tambah kit baru untuk mood lain (Ceria, Melankolis) dengan format yang sama.
 3. Ekspor MIDI per track, supaya hasil bisa dipoles di DAW.
 4. Simpan dan buka proyek (seed, sumber, instrumen, volume).

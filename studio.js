@@ -85,7 +85,37 @@ const kits = [
     [0,0,3,9],[0,3,1,8],[0,4,4,7],
     [1,0,3,8],[1,3,1,6],[1,4,4,4],
     [2,0,2,5],[2,2,2,7],[2,4,4,10],
-    [3,0,4,8],[3,4,4,6]] }
+    [3,0,4,8],[3,4,4,6]] },
+  { name:'Embun', kind:'a', chords:[0,3,5,4], melody:[
+    [0,0,2,4],[0,2,2,2],[0,4,4,7],
+    [1,0,3,5],[1,3,1,4],[1,4,2,3],[1,6,2,5],
+    [2,0,2,7],[2,2,2,6],[2,4,4,5],
+    [3,0,3,4],[3,3,1,5],[3,4,4,6]] },
+  { name:'Kabut', kind:'a', chords:[0,4,3,4], melody:[
+    [0,0,4,9],[0,4,2,7],[0,6,2,4],
+    [1,0,2,8],[1,2,2,6],[1,4,4,4],
+    [2,0,2,5],[2,2,2,7],[2,4,3,10],[2,7,1,9],
+    [3,0,6,8],[3,6,2,6]] },
+  { name:'Senja', kind:'a', chords:[0,5,3,4], melody:[
+    [0,0,3,2],[0,3,1,4],[0,4,3,7],[0,7,1,6],
+    [1,0,3,5],[1,3,1,7],[1,4,4,9],
+    [2,0,3,7],[2,3,1,5],[2,4,3,3],[2,7,1,5],
+    [3,0,4,4],[3,4,4,6]] },
+  { name:'Pelangi', kind:'a', chords:[0,0,3,4], melody:[
+    [0,0,2,0],[0,2,2,2],[0,4,2,4],[0,6,2,2],
+    [1,0,4,4],[1,4,2,7],[1,6,2,4],
+    [2,0,2,5],[2,2,2,3],[2,4,2,0],[2,6,2,3],
+    [3,0,6,1],[3,6,2,4]] },
+  { name:'Hujan', kind:'b', chords:[3,0,5,4], melody:[
+    [0,0,4,10],[0,4,2,7],[0,6,2,8],
+    [1,0,3,9],[1,3,1,8],[1,4,4,7],
+    [2,0,2,9],[2,2,2,7],[2,4,2,5],[2,6,2,7],
+    [3,0,4,8],[3,4,4,6]] },
+  { name:'Angin', kind:'b', chords:[5,0,3,4], melody:[
+    [0,0,3,9],[0,3,1,7],[0,4,4,5],
+    [1,0,2,4],[1,2,2,7],[1,4,4,9],
+    [2,0,3,10],[2,3,1,9],[2,4,4,7],
+    [3,0,2,8],[3,2,2,6],[3,4,4,4]] }
 ];
 
 // Song plan shared by every instrument: chord per bar and one melody line.
@@ -93,8 +123,10 @@ const kits = [
 function planSong(bars) {
   const r = rng(song.seed);
   const choose = list => list[Math.floor(r() * list.length)];
-  const main = choose(kits.filter(k => k.kind === 'a'));
-  const middle = choose(kits.filter(k => k.kind === 'b'));
+  // song.onlyKit (a kit name) plays that single kit throughout, for auditioning kits.
+  const solo = kits.find(k => k.name === song.onlyKit);
+  const main = solo ?? choose(kits.filter(k => k.kind === 'a'));
+  const middle = solo ?? choose(kits.filter(k => k.kind === 'b'));
   const phrases = bars / 4;
   // Main tune first, contrast in the middle, main tune again at the end.
   const order = [];
@@ -421,10 +453,10 @@ function play() {
 }
 // Build the song for the chosen settings. Akustik · Tenang is fully seeded:
 // the same seed gives the same chords and melody for any set of instruments.
-function newSong({genre,mood,duration,names,seed,source='kit'}) {
+function newSong({genre,mood,duration,names,seed,source='kit',onlyKit=null}) {
   const bpm=({Tenang:78,Ceria:112,Melankolis:68})[mood]+({'Lo-fi':-6,Akustik:0,Pop:10})[genre];
   const r=rng(seed), choose=list=>list[Math.floor(r()*list.length)];
-  song={genre,mood,seed,duration,source,step:30/bpm,minor:mood==='Melankolis',
+  song={genre,mood,seed,duration,source,onlyKit,step:30/bpm,minor:mood==='Melankolis',
     key:choose([60,62,65,67]),chords:choose([[0,3,5,4],[0,5,3,4],[0,4,5,3]]),
     tracks:names.map(name=>({name,events:[],volume:.7,muted:false})),harmony:null,variants:{}};
   if (source==='klasik') {
