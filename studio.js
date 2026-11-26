@@ -254,8 +254,8 @@ function fingerpick(events, bar, root, final, lift, quiet, turn, noBass) {
     events.push({ step: bar * 8 + step, string, note: tuning[string] + grip[string] + capo,
       level: level * (.96 + .08 * rand()), delay: delay + .004 * rand(), len: 3 });
   }
-  // With a bass player present the guitar leaves its lowest string to the bass.
-  if (!noBass) pluck(0, strings[0], .60);
+  // Keep the low string when the bass comes in, only softer, so the guitar does not thin out.
+  pluck(0, strings[0], noBass ? .48 : .60);
   if (final) {
     ['D','G','B','HighE'].forEach((string, i) => pluck(0, string, .47 - i * .02, .045 * (i + 1)));
     return;
@@ -279,7 +279,6 @@ function strum(events, bar, root, final, noBass) {
   const grip = grips[root];
   const capo = song.key - 60;
   let strings = Object.keys(grip);
-  if (noBass) strings = strings.slice(1);
   const hit = (step, up, level) => {
     const set = up ? strings.slice(-3).reverse() : strings;
     set.forEach((string, i) => events.push({ step: bar * 8 + step, string,
@@ -297,7 +296,7 @@ function strum(events, bar, root, final, noBass) {
 // Mix balance measured per bar (RMS): the tune must stay loudest, drums sit lowest.
 // Without these the drums buried the guitar melody once they came in.
 const trackTrim = { Bass:6, Drum:.45 };
-const gitarMelodyBoost = 6;
+const gitarMelodyBoost = 4.5;
 const guitarPeak = .13;
 const strumLevel = .3;
 const arpLevel = .17;
@@ -340,7 +339,18 @@ function arrange(name, variant = 0) {
         if (role.melody !== 'Piano' && !final) add(4, pitch(root + 7) - 12, 3.5, .17, .02);
       }
     } else if (name === 'Gitar') {
-      if (role.melody === 'Gitar') playMelody(0, .63, gitarMelodyBoost);
+      if (role.melody === 'Gitar') {
+        playMelody(0, .5, gitarMelodyBoost);
+        if (role.chords !== 'Gitar') {
+          // Thumb notes under the tune, as a fingerstyle player would, so the guitar
+          // does not turn into a bare single-note instrument.
+          const capo = song.key - 60, grip = grips[root];
+          const thumb = (beat, string, level) => events.push({ step: bar * 8 + beat, string,
+            note: tuning[string] + grip[string] + capo, level: level * (.95 + .08 * rand()), delay: .004 * rand(), len: 3 });
+          thumb(0, 'D', .46);
+          if (!final) thumb(4, 'G', .4);
+        }
+      }
       if (role.chords === 'Gitar') {
         const quiet = role.melody !== 'Gitar' || alone;
         if (song.style.guitar === 'genjreng') strum(events, bar, root, final, role.bass);
@@ -418,7 +428,8 @@ function articulateGuitar(events) {
   for (const event of events.slice().sort((a,b)=>onset(a)-onset(b))) {
     const at = onset(event);
     // Firm plucks only: the softest recordings sounded like a weak fretting hand.
-    const layer = event.level < .55 ? 2 : 3;
+    // Melody notes use the same recordings as the accompaniment so the guitar keeps one voice.
+    const layer = event.boost > 1 || event.level < .55 ? 2 : 3;
     const playable = samples.filter(s => tuning[s.string]<=event.note && (!event.string || s.string===event.string));
     // Low strings were only recorded soft and medium, so take the firmest they have.
     const firmest = Math.min(layer, ...playable.map(s=>s.layer).filter((v,i,a)=>a.indexOf(v)===i).sort().slice(-1));
