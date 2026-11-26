@@ -201,7 +201,8 @@ function roles(bar) {
   const has = name => song.tracks.some(t => t.name === name);
   const { phrase } = song.harmony[bar];
   const both = has('Piano') && has('Gitar');
-  const melody = both ? (phrase % 2 === 0 ? 'Piano' : 'Gitar') : has('Piano') ? 'Piano' : has('Gitar') ? 'Gitar' : null;
+  // song.pianoMelody keeps the tune on piano and the guitar accompanying throughout.
+  const melody = both ? (song.pianoMelody || phrase % 2 === 0 ? 'Piano' : 'Gitar') : has('Piano') ? 'Piano' : has('Gitar') ? 'Gitar' : null;
   const chords = both ? (melody === 'Piano' ? 'Gitar' : 'Piano') : melody;
   // Bass and drums join after the first phrase so the tune is heard alone first.
   const ensemble = bar >= 4 || !melody;
@@ -348,7 +349,11 @@ function articulateGuitar(events) {
     // Low strings were only recorded soft and medium, so take the firmest they have.
     const firmest = Math.min(layer, ...playable.map(s=>s.layer).filter((v,i,a)=>a.indexOf(v)===i).sort().slice(-1));
     const choices = playable.filter(s => s.layer===firmest);
+    // A melody note (no fixed string) is played low on the neck, as a guitarist would,
+    // instead of high up on a middle string.
+    const fret = s => event.note - tuning[s.string] - (song.key - 60);
     const score = s => Math.abs(s.midi-event.note)
+      + (event.string ? 0 : Math.max(0, fret(s) - 5))
       + (previous.get(event.note)===s.string ? 2 : 0)
       + (at-(ringing.get(s.string)?.at ?? -10)<.10 ? 12 : 0);
     const sample = choices.reduce((a,b)=>score(a)<=score(b)?a:b);
@@ -484,10 +489,10 @@ function play() {
 }
 // Build the song for the chosen settings. Akustik · Tenang is fully seeded:
 // the same seed gives the same chords and melody for any set of instruments.
-function newSong({genre,mood,duration,names,seed,source='kit',onlyKit=null}) {
+function newSong({genre,mood,duration,names,seed,source='kit',onlyKit=null,pianoMelody=false}) {
   const bpm=({Tenang:78,Ceria:112,Melankolis:68})[mood]+({'Lo-fi':-6,Akustik:0,Pop:10})[genre];
   const r=rng(seed), choose=list=>list[Math.floor(r()*list.length)];
-  song={genre,mood,seed,duration,source,onlyKit,step:30/bpm,minor:mood==='Melankolis',
+  song={genre,mood,seed,duration,source,onlyKit,pianoMelody,step:30/bpm,minor:mood==='Melankolis',
     key:choose([60,62,65,67]),chords:choose([[0,3,5,4],[0,5,3,4],[0,4,5,3]]),
     tracks:names.map(name=>({name,events:[],volume:.7,muted:false})),harmony:null,variants:{}};
   if (source==='klasik') {

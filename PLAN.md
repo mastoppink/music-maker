@@ -13,6 +13,7 @@ Generator musik instrumental untuk dipakai sendiri, dan hasil musiknya bisa diju
 - **Keseimbangan volume** (`trackTrim`, `gitarMelodyBoost`): diukur per birama. Sebelumnya drum menenggelamkan melodi gitar saat masuk (pengguna: "semuanya rusak saat drum masuk"). Sekarang melodi paling keras, drum paling pelan.
 - **Petikan gitar**: dulu gitar hampir selalu memakai rekaman petikan paling lembut (pengguna: "seperti gripnya kurang kuat"). Sekarang hanya lapisan sedang dan kuat, dan volumenya dinormalkan per rekaman (`guitarPeak`). Senar LowE/A/D hanya punya lapisan 1–2, jadi diambil yang terkuat.
 - **Ekor nada** (pengguna: "kayak dipaksa mati"): gitar memudar 0,3 detik saat ganti akor (dulu 0,045), piano memakai pedal sampai ganti akor, bass menyambung ke nada berikutnya, dan lagu punya ekor 3 detik (`tail`) setelah ketukan terakhir.
+- **Melodi di gitar** (pengguna: "mulai detik 15 seperti orang belajar main gitar"): melodi dulu dimainkan tinggi di senar G (sampai fret 17) dan melompat antar senar. Sekarang nada melodi diarahkan ke fret rendah di senar atas. Opsi `pianoMelody` menahan melodi di piano; menunggu pilihan A/B pengguna.
 - **A/B**: setiap "Buat musik" menghasilkan dua versi (seed berurutan). Seed tampil di pesan status.
 - **Sampel**: Meta Piano (4 lapisan dinamika), gitar nilon Meta, kontrabas pizzicato VSCO 2 CE, kick lama, snare lembut dan shaker VSCO. Semuanya CC0, lihat `samples/RECORDINGS.txt`.
 
