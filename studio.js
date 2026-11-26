@@ -463,11 +463,22 @@ function improvise(root, pos, previous, r) {
 //   pause  thin: tune and chords only  outro  main tune with the ending
 // Short songs come out as A Av B Av ... like before; long songs walk further
 // through the cycle so the music keeps changing.
-const formCycle = ['A','Av','B','Av','C','Cv','B2','A','pause','Av','B','A'];
-function songForm(phrases) {
-  const form = phrases >= 6 ? ['intro'] : [];
+// Several orders of sections, so songs heard one after another do not share one pattern.
+// Each starts with the main tune; every order holds the same kinds of sections.
+const formCycles = [
+  ['A','Av','B','Av','C','Cv','B2','A','pause','Av','B','A'],
+  ['A','B','Av','B2','C','A','pause','Cv','B','Av','A','B'],
+  ['A','Av','C','B','Av','pause','Cv','B2','A','B','Av','A'],
+  ['A','B','A','C','Cv','B2','pause','Av','B','A','Av','B']
+];
+const formCycle = formCycles[0];
+// song.formChoice: { template (which order), intro (start with an intro phrase), lead
+// (0: piano takes the tune first, 1: guitar first) }.
+function songForm(phrases, choice = { template:0, intro:true }) {
+  const cycle = formCycles[choice.template] ?? formCycle;
+  const form = phrases >= 6 && choice.intro ? ['intro'] : [];
   const fill = phrases - form.length - 1;
-  for (let i = 0; i < fill; i++) form.push(formCycle[i % formCycle.length]);
+  for (let i = 0; i < fill; i++) form.push(cycle[i % cycle.length]);
   form.push('outro');
   return form;
 }
@@ -504,7 +515,7 @@ function planSong(bars) {
     solo:main, solo2:main };
   const phrases = bars / 4;
   // Jazz: the second tune's place becomes two phrases of piano solo over the main tune's chords.
-  const form = songForm(phrases).map(x => song.genre === 'Jazz' ? ({ C:'solo', Cv:'solo2' })[x] ?? x : x);
+  const form = songForm(phrases, song.formChoice).map(x => song.genre === 'Jazz' ? ({ C:'solo', Cv:'solo2' })[x] ?? x : x);
   const soloRandom = rng(song.seed ^ 0x5010);
   let soloNote = 7;
   const harmony = [], melody = [], used = [];
@@ -604,7 +615,8 @@ function roles(bar) {
   // song.pianoMelody keeps the tune on piano and the guitar accompanying throughout.
   // Jazz solos are always the piano's.
   const soloing = section === 'solo' || section === 'solo2';
-  const melody = both ? (song.pianoMelody || soloing || turn % 2 === 0 ? 'Piano' : 'Gitar') : has('Piano') ? 'Piano' : has('Gitar') ? 'Gitar' : null;
+  const lead = song.formChoice?.lead ?? 0;
+  const melody = both ? (song.pianoMelody || soloing || (turn + lead) % 2 === 0 ? 'Piano' : 'Gitar') : has('Piano') ? 'Piano' : has('Gitar') ? 'Gitar' : null;
   const chords = both ? (melody === 'Piano' ? 'Gitar' : 'Piano') : melody;
   // Bass and drums play only in sections with energy (not in the intro, the first
   // statement of the tune, or the thin pause).
@@ -1264,6 +1276,9 @@ function newSong({genre,mood,duration,names,seed,source='kit',onlyKit=null,piano
     const [lo,hi]=song.style.bpm;
     song.step=30/(lo+r2()*(hi-lo));
     song.ending=force.ending ?? pick2(['kadens','kit']);
+    // Song shape from its own random stream, so the other choices for a seed stay as they were.
+    const rf=rng(seed^0xf0f0);
+    song.formChoice=force.form ?? { template:Math.floor(rf()*formCycles.length), intro:rf()<.75, lead:rf()<.5?0:1 };
     // Each instrument starts with the style's pattern; the listener can change any of them.
     song.parts={Gitar:song.style.guitar, Piano:song.style.piano, Drum:song.style.drum, Bass:song.style.bass ?? 'tahan', String:song.style.strings ?? 'panjang', ...force.parts};
     // Sad songs always slow down at the end (the random draw is kept so other moods stay the same).
@@ -1297,7 +1312,8 @@ function projectOf(s) {
     variasi:s.parts ? Object.fromEntries(Object.keys(s.parts).filter(played).map(n => [n, (s.variants[n] ?? 0) % variationCount[n][s.parts[n]] + 1])) : {},
     volume:Object.fromEntries(s.tracks.map(t => [t.name, Math.round(t.volume * 100)])),
     bisu:s.tracks.filter(t => t.muted).map(t => t.name),
-    ...(s.kitChoice ? { melodi_kit:s.kitChoice } : {}), dinamika:s.dynamics };
+    ...(s.kitChoice ? { melodi_kit:s.kitChoice } : {}), dinamika:s.dynamics,
+    ...(s.formChoice ? { bentuk:s.formChoice } : {}) };
 }
 // Builds `song` from a project. Returns { error } or { notes } (things that were ignored).
 async function songFromProject(p) {
@@ -1312,7 +1328,9 @@ async function songFromProject(p) {
   const force = { parts:p.pola ?? {} };
   if (p.gaya) force.style = p.gaya;
   newSong({ genre:p.genre ?? 'Akustik', mood:p.mood ?? 'Tenang', duration:Number(p.durasi ?? 60), names, seed:Number(p.seed ?? 0),
-    source:p.sumber ?? 'kit', pianoMelody:p.melodi === 'piano', force:{ ...force, kits:p.melodi_kit, dynamics:p.dinamika } });
+    source:p.sumber ?? 'kit', pianoMelody:p.melodi === 'piano',
+    // Projects saved before song shapes varied (they name their tunes but no shape) keep the old one.
+    force:{ ...force, kits:p.melodi_kit, dynamics:p.dinamika, form:p.bentuk ?? (p.melodi_kit ? { template:0, intro:true, lead:0 } : undefined) } });
   const notes = [];
   if (!song.parts && (Object.keys(p.pola ?? {}).length || Object.keys(p.variasi ?? {}).length || p.gaya))
     notes.push('Gaya, pola, dan variasi hanya berlaku untuk sumber kit; diabaikan.');

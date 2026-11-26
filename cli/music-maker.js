@@ -114,7 +114,8 @@ function settingsFrom(opts) {
     bisu: opts.bisu ? list(opts.bisu) : base.bisu ?? [],
     // Tune names from a saved project keep the song identical even after new kits are added.
     ...(base.melodi_kit && opts.seed === undefined ? { melodi_kit: base.melodi_kit } : {}),
-    ...(base.dinamika ? { dinamika: base.dinamika } : {})
+    ...(base.dinamika ? { dinamika: base.dinamika } : {}),
+    ...(base.bentuk && opts.seed === undefined ? { bentuk: base.bentuk } : {})
   };
   if (!['Tenang','Ceria','Melankolis','Sedih'].includes(s.mood)) throw new Error('--mood harus Tenang, Ceria, Melankolis, atau Sedih.');
   if (!['Akustik','Lo-fi','Pop','Jazz','Bossa'].includes(s.genre)) throw new Error('--genre harus Akustik, Lo-fi, Pop, Jazz, atau Bossa.');
@@ -167,7 +168,7 @@ function renderInPage(s) {
       window.__midi = midiFile();
       return { description: describe(song), seconds: total(), gaya: song.style?.name ?? null, pola: song.parts ?? {},
         variasi: Object.fromEntries(song.tracks.filter(t => song.parts?.[t.name]).map(t => [t.name, (song.variants[t.name] ?? 0) % variationCount[t.name][song.parts[t.name]] + 1])),
-        kits: song.kitChoice ?? null, dynamics: song.dynamics, notes, midiTracks };
+        kits: song.kitChoice ?? null, dynamics: song.dynamics, form: song.formChoice ?? null, notes, midiTracks };
     }
     const buf = master(await renderMix(false));
     let peak = 0;
@@ -179,7 +180,7 @@ function renderInPage(s) {
     for (const track of song.tracks) if (song.parts?.[track.name])
       variants[track.name] = (song.variants[track.name] ?? 0) % variationCount[track.name][song.parts[track.name]] + 1;
     return { description: describe(song), seconds: buf.duration, lufs: buf.loudness, peakDb: 20 * Math.log10(peak),
-      gaya: song.style?.name ?? null, pola: song.parts ?? {}, variasi: variants, kits: song.kitChoice ?? null, dynamics: song.dynamics, notes, midiTracks, size: window.__wav.length };
+      gaya: song.style?.name ?? null, pola: song.parts ?? {}, variasi: variants, kits: song.kitChoice ?? null, dynamics: song.dynamics, form: song.formChoice ?? null, notes, midiTracks, size: window.__wav.length };
   };
 }
 
@@ -240,7 +241,7 @@ async function make(opts) {
     const page = await openStudio(browser);
     for (let i = 0; i < count; i++) {
       // Extra versions get their own tunes; only the first keeps the saved ones.
-      const s = { ...settings, seed: settings.seed + i, ...(i ? { melodi_kit: undefined } : {}) };
+      const s = { ...settings, seed: settings.seed + i, ...(i ? { melodi_kit: undefined, bentuk: undefined } : {}) };
       const started = Date.now();
       process.stdout.write(`Membuat lagu ${i + 1}/${count} (seed ${s.seed})… `);
       const info = await page.evaluate(renderInPage(s), { ...s, midiOnly });
@@ -249,7 +250,7 @@ async function make(opts) {
       const file = path.join(outDir, name + '.wav');
       if (!midiOnly) fs.writeFileSync(file, await fetchWav(page, info.size));
       // Settings file: the exact pattern and variation used, so --dari reproduces this song.
-      const saved = { ...s, gaya: info.gaya ?? s.gaya, pola: info.pola, variasi: info.variasi, ...(info.kits ? { melodi_kit: info.kits } : {}), dinamika: info.dynamics };
+      const saved = { ...s, gaya: info.gaya ?? s.gaya, pola: info.pola, variasi: info.variasi, ...(info.kits ? { melodi_kit: info.kits } : {}), dinamika: info.dynamics, ...(info.form ? { bentuk: info.form } : {}) };
       fs.writeFileSync(path.join(outDir, name + '.json'), JSON.stringify(saved, null, 2) + '\n');
       const min = Math.floor(info.seconds / 60), sec = Math.round(info.seconds % 60);
       console.log(`selesai dalam ${Math.round((Date.now() - started) / 1000)} detik`);
@@ -291,6 +292,7 @@ async function mix(opts) {
   const settings = settingsFrom({ ...opts, durasi: each, menit: undefined, 'durasi-lagu': undefined, jeda: undefined });
   // Every song in a mix picks its own tunes.
   delete settings.melodi_kit;
+  delete settings.bentuk;
   const outDir = path.resolve(opts.keluar ?? 'hasil');
   fs.mkdirSync(outDir, { recursive: true });
   const name = `rangkaian-${settings.mood}-${settings.genre}-${minutes}menit-seed${settings.seed}`.toLowerCase().replace(/[^a-z0-9-]+/g, '-');

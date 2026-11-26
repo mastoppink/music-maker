@@ -54,7 +54,9 @@ Gaya lagu, bentuk lagu, dan pola per instrumen berlaku untuk **Kit orisinal** di
 
 ### Bentuk lagu
 
-Lagu 3 menit ke atas punya bagian-bagian: pembuka, melodi utama, bagian tengah yang lebih penuh, melodi kedua (di Jazz: solo piano), bagian jeda yang tipis, lalu penutup. Pola iringan berganti antarbagian, drum sesekali istirahat, dan nada dasar naik setelah bagian jeda, supaya lagu panjang tidak monoton.
+Lagu 3 menit ke atas punya bagian-bagian: pembuka, melodi utama, bagian tengah yang lebih penuh, melodi kedua (di Jazz: solo), bagian jeda yang tipis, lalu penutup. Pola iringan berganti antarbagian, drum sesekali istirahat, dan nada dasar naik setelah bagian jeda, supaya lagu panjang tidak monoton.
+
+Supaya lagu-lagu tidak berpola sama, setiap lagu (ditentukan oleh seed) memilih salah satu dari empat **urutan bagian**, ada atau tidaknya pembuka, dan instrumen yang membawa melodi lebih dulu (piano atau gitar). Bentuk ini ikut tersimpan di file proyek (`bentuk`), jadi lagu yang disimpan tetap sama.
 
 ## CLI
 
@@ -145,7 +147,7 @@ node cli/music-maker.js buat --dari hasil/tenang-akustik-kit-seed123.json
 Setiap lagu disimpan sebagai dua file di folder hasil:
 
 - `tenang-akustik-kit-seed123.wav`: audio stereo 44,1 kHz yang sudah di-master.
-- `tenang-akustik-kit-seed123.json`: pengaturan lengkap, termasuk gaya, pola, variasi, nama melodi (`melodi_kit`), dan takaran dinamika yang dipakai. Simpan file ini untuk lagu yang ingin dibuat ulang. Karena nama melodinya tersimpan, lagu tetap sama walaupun nanti ada melodi baru yang ditambahkan.
+- `tenang-akustik-kit-seed123.json`: pengaturan lengkap, termasuk gaya, pola, variasi, nama melodi (`melodi_kit`), bentuk lagu (`bentuk`), dan takaran dinamika yang dipakai. Simpan file ini untuk lagu yang ingin dibuat ulang. Karena nama melodinya tersimpan, lagu tetap sama walaupun nanti ada melodi baru yang ditambahkan.
 
 Catatan: file proyek yang dibuat sebelum 26 November 2026 belum menyimpan nama melodi, jadi bisa menghasilkan melodi yang berbeda.
 
