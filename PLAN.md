@@ -82,9 +82,8 @@ Cara kerja dengan pengguna: pengguna tidak membaca not dan tidak menilai nada. S
 
 ## Berikutnya (urut prioritas)
 
-1. **Rangkaian 30–60 menit** dari beberapa lagu berbeda dengan jeda halus (lagu 3 dan 5 menit sudah ada).
-2. **Mood Melankolis.** Kit bernada minor dengan format yang sama, plus gaya yang cocok.
-3. **Genre Lo-fi dan Pop** di mesin kit. Gaya baru (misalnya drum lo-fi yang diayun, suara lebih hangat) memakai kit yang sama.
-4. **Simpan dan buka proyek** (seed, mood, genre, gaya, instrumen, pengaturan tiap instrumen, volume), supaya lagu bisa dibuat persis sama lagi.
-5. **Siap unggah**: volume akhir standar YouTube (sekitar −14 LUFS), ekspor per instrumen (stem), ekspor MIDI, dan video sederhana (gambar + audio).
-6. **Hapus sumber Klasik (Bach)** kalau pengguna setuju, supaya aplikasi lebih sederhana.
+1. **Rangkaian 30–60 menit** dari beberapa lagu berbeda dengan jeda halus, untuk video "musik belajar/santai" (lagu 3 dan 5 menit sudah ada).
+2. **Genre Pop** di mesin kit (Akustik dan Lo-fi sudah).
+3. **Mood Melankolis.** Kit bernada minor dengan format yang sama, plus gaya yang cocok.
+4. **Simpan dan buka proyek di aplikasi web** dengan format `.json` yang sama dengan CLI (`--dari`).
+5. **Siap unggah**: ekspor per instrumen (stem), ekspor MIDI, dan video sederhana (gambar + audio). Volume standar YouTube sudah selesai.
