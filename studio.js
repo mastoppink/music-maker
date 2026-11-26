@@ -1516,6 +1516,13 @@ const midiSetup = {
   Perkusi:{ channel:9, volume:80, pan:74 }
 };
 const midiDrums = { kick:36, snare:38, rim:37, hat:82, hhc:42, hhl:46, hhp:44 };
+// Track names as they appear in the MIDI file, with the genre's sound where it differs.
+function midiTrackNames() {
+  const band = midiBand();
+  const label = { 4:'Electric piano', 26:'Gitar jazz', 33:'Bass elektrik' };
+  return [...song.tracks.map(t => label[band?.programs[t.name]] ?? midiSetup[t.name].name ?? t.name),
+    ...(band ? band.extra.map(([n]) => midiSetup[n].name ?? n) : [])];
+}
 function midiFile() {
   const ppq = 480, tick = seconds => Math.max(0, Math.round(seconds / song.step * ppq / 2));
   const varLen = n => { const out = [n & 127]; while ((n >>= 7)) out.unshift((n & 127) | 128); return out; };

@@ -33,12 +33,15 @@ Opsi untuk "buat":
   --keluar <folder>                       Folder hasil. Bawaan: ./hasil
   --dari <file.json>                      Buat ulang lagu dari file pengaturan yang disimpan
   --browser <path>                        Path ke Chrome/Edge/Chromium kalau tidak ditemukan otomatis
-  --midi                                  Simpan juga file MIDI (satu jalur per instrumen)
+  --midi                                  Simpan juga file MIDI dengan formasi band lengkap untuk genrenya
+                                          (lihat "daftar"; misalnya Jazz: saksofon, trompet, drum lengkap)
+  --midi-saja                             Hanya MIDI dan .json, tanpa WAV (lebih cepat, untuk dipakai di DAW)
   --stem                                  Simpan juga satu WAV per instrumen
   --video <gambar>                        Buat juga video MP4 (gambar diam + musik). Butuh ffmpeg
   --ffmpeg <path>                         Path ke ffmpeg kalau tidak ada di PATH
 
-Opsi tambahan untuk "rangkaian" (semua opsi "buat" juga berlaku untuk setiap lagu):
+Opsi tambahan untuk "rangkaian" (semua opsi "buat" juga berlaku untuk setiap lagu;
+--midi menyimpan MIDI setiap lagu di folder <nama>-midi):
   --menit <angka>                         Panjang rangkaian. Bawaan: 30
   --durasi-lagu <detik>                   Panjang tiap lagu. Bawaan: 180
   --jeda <detik>                          Lama peralihan antarlagu (ekor lagu menyatu dengan awal lagu berikutnya). Bawaan: 2
@@ -58,6 +61,7 @@ Contoh:
   node cli/music-maker.js buat --sumber klasik --durasi 300 --instrumen Piano,Bass
   node cli/music-maker.js buat --dari hasil/tenang-akustik-kit-seed123.json
   node cli/music-maker.js rangkaian --genre Lo-fi --menit 60
+  node cli/music-maker.js buat --genre Jazz --durasi 180 --midi-saja
   node cli/music-maker.js master ~/Music/lagu-dari-garageband.wav
 
 Rangkaian juga menyimpan daftar lagu dengan waktu mulai (.txt) dalam format bab YouTube,
@@ -76,7 +80,7 @@ function parseArgs(argv) {
     }
     const [key, inline] = arg.slice(2).split(/=(.*)/s);
     // On/off switches need no value.
-    if (['midi', 'stem'].includes(key) && inline === undefined) { opts[key] = true; continue; }
+    if (['midi', 'midi-saja', 'stem'].includes(key) && inline === undefined) { opts[key] = true; continue; }
     const value = inline ?? rest[++i];
     if (value === undefined) throw new Error(`Opsi --${key} butuh nilai.`);
     opts[key] = value;
@@ -92,7 +96,7 @@ const pairs = (text, name) => Object.fromEntries(list(text).map(item => {
 
 // Turn command-line options into the settings the engine needs.
 function settingsFrom(opts) {
-  const known = ['mood','genre','sumber','durasi','instrumen','melodi','seed','versi','gaya','pola','variasi','volume','bisu','keluar','dari','browser','bantuan','menit','durasi-lagu','jeda','midi','stem','video','ffmpeg'];
+  const known = ['mood','genre','sumber','durasi','instrumen','melodi','seed','versi','gaya','pola','variasi','volume','bisu','keluar','dari','browser','bantuan','menit','durasi-lagu','jeda','midi','midi-saja','stem','video','ffmpeg'];
   for (const key of Object.keys(opts)) if (!known.includes(key)) throw new Error(`Opsi tidak dikenal: --${key}. Lihat "bantuan".`);
   const base = opts.dari ? JSON.parse(fs.readFileSync(opts.dari, 'utf8')) : {};
   const s = {
@@ -157,6 +161,14 @@ function renderInPage(s) {
     const result = await songFromProject(s);
     if (result.error) return { error: result.error };
     const notes = result.notes;
+    // Names of the MIDI tracks (full band for the genre), for the summary on screen.
+    const midiTracks = midiTrackNames();
+    if (s.midiOnly) {
+      window.__midi = midiFile();
+      return { description: describe(song), seconds: total(), gaya: song.style?.name ?? null, pola: song.parts ?? {},
+        variasi: Object.fromEntries(song.tracks.filter(t => song.parts?.[t.name]).map(t => [t.name, (song.variants[t.name] ?? 0) % variationCount[t.name][song.parts[t.name]] + 1])),
+        kits: song.kitChoice ?? null, dynamics: song.dynamics, notes, midiTracks };
+    }
     const buf = master(await renderMix(false));
     let peak = 0;
     for (let c = 0; c < buf.numberOfChannels; c++) for (const x of buf.getChannelData(c)) peak = Math.max(peak, Math.abs(x));
@@ -167,7 +179,7 @@ function renderInPage(s) {
     for (const track of song.tracks) if (song.parts?.[track.name])
       variants[track.name] = (song.variants[track.name] ?? 0) % variationCount[track.name][song.parts[track.name]] + 1;
     return { description: describe(song), seconds: buf.duration, lufs: buf.loudness, peakDb: 20 * Math.log10(peak),
-      gaya: song.style?.name ?? null, pola: song.parts ?? {}, variasi: variants, kits: song.kitChoice ?? null, dynamics: song.dynamics, notes, size: window.__wav.length };
+      gaya: song.style?.name ?? null, pola: song.parts ?? {}, variasi: variants, kits: song.kitChoice ?? null, dynamics: song.dynamics, notes, midiTracks, size: window.__wav.length };
   };
 }
 
@@ -217,7 +229,9 @@ function saveVideo(wavFile, image, ffmpeg = 'ffmpeg') {
 }
 
 async function make(opts) {
-  const settings = settingsFrom(opts);
+  const midiOnly = !!opts['midi-saja'];
+  if (midiOnly && (opts.stem || opts.video)) throw new Error('--midi-saja tidak membuat audio, jadi tidak bisa digabung dengan --stem atau --video.');
+  const settings = settingsFrom({ ...opts, 'midi-saja': undefined });
   const count = Math.max(1, Number(opts.versi ?? 1));
   const outDir = path.resolve(opts.keluar ?? 'hasil');
   fs.mkdirSync(outDir, { recursive: true });
@@ -229,27 +243,29 @@ async function make(opts) {
       const s = { ...settings, seed: settings.seed + i, ...(i ? { melodi_kit: undefined } : {}) };
       const started = Date.now();
       process.stdout.write(`Membuat lagu ${i + 1}/${count} (seed ${s.seed})… `);
-      const info = await page.evaluate(renderInPage(s), s);
+      const info = await page.evaluate(renderInPage(s), { ...s, midiOnly });
       if (info.error) throw new Error(info.error);
       const name = `${s.mood}-${s.genre}-${s.sumber}-seed${s.seed}`.toLowerCase().replace(/[^a-z0-9-]+/g, '-');
       const file = path.join(outDir, name + '.wav');
-      fs.writeFileSync(file, await fetchWav(page, info.size));
+      if (!midiOnly) fs.writeFileSync(file, await fetchWav(page, info.size));
       // Settings file: the exact pattern and variation used, so --dari reproduces this song.
       const saved = { ...s, gaya: info.gaya ?? s.gaya, pola: info.pola, variasi: info.variasi, ...(info.kits ? { melodi_kit: info.kits } : {}), dinamika: info.dynamics };
       fs.writeFileSync(path.join(outDir, name + '.json'), JSON.stringify(saved, null, 2) + '\n');
       const min = Math.floor(info.seconds / 60), sec = Math.round(info.seconds % 60);
       console.log(`selesai dalam ${Math.round((Date.now() - started) / 1000)} detik`);
       console.log(`  ${info.description}`);
-      console.log(`  Durasi ${min}:${String(sec).padStart(2, '0')} · ${info.lufs.toFixed(1)} LUFS · puncak ${info.peakDb.toFixed(1)} dB`);
-      if (Object.keys(info.pola).length)
-        console.log('  Pola: ' + Object.entries(info.pola).map(([k, v]) => `${k}=${v} (variasi ${info.variasi[k]})`).join(', '));
+      console.log(`  Durasi ${min}:${String(sec).padStart(2, '0')}` + (midiOnly ? '' : ` · ${info.lufs.toFixed(1)} LUFS · puncak ${info.peakDb.toFixed(1)} dB`));
+      // Only instruments that are in the song (the pattern list also names unused ones).
+      const played = Object.entries(info.pola).filter(([k]) => info.variasi[k]);
+      if (played.length) console.log('  Pola: ' + played.map(([k, v]) => `${k}=${v} (variasi ${info.variasi[k]})`).join(', '));
       for (const note of info.notes) console.log('  Catatan: ' + note);
       const shown = path.relative(process.cwd(), file);
-      console.log(`  Disimpan: ${shown.startsWith('..') ? file : shown}`);
+      if (!midiOnly) console.log(`  Disimpan: ${shown.startsWith('..') ? file : shown}`);
       const base = file.replace(/\.wav$/, '');
-      if (opts.midi) {
-        fs.writeFileSync(base + '.mid', Buffer.from(await page.evaluate(() => Array.from(midiFile()))));
-        console.log(`  MIDI: ${path.basename(base)}.mid`);
+      if (opts.midi || midiOnly) {
+        fs.writeFileSync(base + '.mid', Buffer.from(await page.evaluate(() => Array.from(window.__midi ?? midiFile()))));
+        const midiShown = path.relative(process.cwd(), base + '.mid');
+        console.log(`  MIDI: ${midiOnly ? (midiShown.startsWith('..') ? base + '.mid' : midiShown) : path.basename(base) + '.mid'} (${info.midiTracks.join(', ')})`);
       }
       if (opts.stem) console.log(`  Stem: ${(await saveStems(page, base)).map(n => path.basename(base) + '-stem-' + n.toLowerCase() + '.wav').join(', ')}`);
       if (opts.video) console.log(`  Video: ${path.basename(saveVideo(file, opts.video, opts.ffmpeg))}`);
@@ -271,7 +287,7 @@ async function mix(opts) {
   if (!(minutes >= 1 && minutes <= 180)) throw new Error('--menit harus antara 1 dan 180.');
   if (!(each >= 20 && each <= 600)) throw new Error('--durasi-lagu harus antara 20 dan 600 detik.');
   if (!(fade >= 0 && fade <= 10)) throw new Error('--jeda harus antara 0 dan 10 detik.');
-  if (opts.midi || opts.stem) throw new Error('--midi dan --stem hanya untuk "buat", bukan rangkaian.');
+  if (opts.stem || opts['midi-saja']) throw new Error('--stem dan --midi-saja hanya untuk "buat". Untuk rangkaian, --midi menyimpan MIDI setiap lagu.');
   const settings = settingsFrom({ ...opts, durasi: each, menit: undefined, 'durasi-lagu': undefined, jeda: undefined });
   // Every song in a mix picks its own tunes.
   delete settings.melodi_kit;
@@ -302,6 +318,12 @@ async function mix(opts) {
       }
       if (held.length > join) { fs.writeSync(fd, held.subarray(0, held.length - join)); written += held.length - join; }
       chapters.push([written / (rate * frameBytes), `Lagu ${i + 1} · ${info.gaya ? 'Gaya ' + info.gaya : info.description.split(' · ')[0]}`]);
+      if (opts.midi) {
+        // One MIDI file per song of the mix, for re-playing them in a DAW.
+        const midiDir = path.join(outDir, name + '-midi');
+        fs.mkdirSync(midiDir, { recursive: true });
+        fs.writeFileSync(path.join(midiDir, `lagu-${String(i + 1).padStart(2, '0')}-seed${s.seed}.mid`), Buffer.from(await page.evaluate(() => Array.from(midiFile()))));
+      }
       songs.push({ seed: s.seed, deskripsi: info.description, mulai: clock(written / (rate * frameBytes)) });
       const keep = Math.min(overlap, pcm.length);
       fs.writeSync(fd, pcm.subarray(0, pcm.length - keep)); written += pcm.length - keep;
@@ -325,6 +347,7 @@ async function mix(opts) {
   console.log(`Selesai: ${clock(written / (rate * frameBytes))}, ${songs.length} lagu, ${(written / 1e6).toFixed(0)} MB`);
   console.log(`  ${file}`);
   console.log(`  Daftar lagu untuk deskripsi YouTube: ${path.join(outDir, name + '.txt')}`);
+  if (opts.midi) console.log(`  MIDI setiap lagu: ${path.join(outDir, name + '-midi')}`);
   if (opts.video) {
     console.log('Membuat video…');
     console.log(`  Video: ${saveVideo(file, opts.video, opts.ffmpeg)}`);
@@ -382,12 +405,23 @@ async function show(opts) {
       moods: [...document.querySelectorAll('#mood option')].map(o => o.value),
       genres: [...document.querySelectorAll('#genre option')].map(o => o.value)
     }));
+    info.midi = await page.evaluate(async genres => {
+      ctx = new OfflineAudioContext(2, 44100, 44100);
+      const out = {};
+      for (const genre of genres) {
+        await songFromProject({ genre, mood:'Tenang', durasi:20, instrumen:['Piano','Gitar','Bass','Drum'], seed:1 });
+        out[genre] = midiTrackNames();
+      }
+      return out;
+    }, info.genres);
     console.log('Mood:       ' + info.moods.join(', '));
     console.log('Genre:      ' + info.genres.join(', '));
     console.log('Sumber:     kit (Kit orisinal), klasik (Bach)');
     console.log('Instrumen:  ' + info.instruments.join(', '));
     console.log('\nGaya lagu (sumber kit):');
     for (const s of info.styles) console.log(`  ${s.name.padEnd(11)} ${s.genre.padEnd(8)} mood ${s.mood.padEnd(7)} ${s.bpm[0]}–${s.bpm[1]} BPM · gitar ${s.guitar}, piano ${s.piano}, drum ${s.drum}`);
+    console.log('\nJalur MIDI per genre (--midi atau --midi-saja; contoh mood Tenang, instrumen bawaan):');
+    for (const [genre, list] of Object.entries(info.midi)) console.log(`  ${genre.padEnd(8)} ${list.join(', ')}`);
     console.log('\nPola per instrumen (--pola Instrumen=nama, --variasi Instrumen=nomor):');
     for (const [n, list] of Object.entries(info.parts)) console.log(`  ${n.padEnd(6)} ${list.join(', ')}`);
   } finally {

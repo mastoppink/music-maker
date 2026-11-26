@@ -75,7 +75,7 @@ CLI menjalankan aplikasi di Edge atau Chrome yang sudah ada di komputer tanpa me
 node cli/music-maker.js buat [opsi]       # buat lagu dan simpan sebagai WAV
 node cli/music-maker.js rangkaian [opsi]  # sambung banyak lagu menjadi satu file 30–60 menit
 node cli/music-maker.js master <file...>  # atur volume file audio (misalnya hasil DAW) ke standar YouTube
-node cli/music-maker.js daftar         # tampilkan mood, genre, gaya, dan pola yang tersedia
+node cli/music-maker.js daftar         # tampilkan mood, genre, gaya, pola, dan jalur MIDI per genre
 node cli/music-maker.js bantuan        # tampilkan semua opsi
 ```
 
@@ -93,7 +93,7 @@ Menyambung banyak lagu berbeda (seed berurutan) menjadi satu WAV panjang. Setiap
 | `--durasi-lagu` | panjang tiap lagu dalam detik | 180 |
 | `--jeda` | lama peralihan antarlagu dalam detik | 2 |
 
-Opsi `buat` lainnya (mood, genre, gaya, pola, dan sebagainya) berlaku untuk setiap lagu. Selain WAV, rangkaian menyimpan:
+Opsi `buat` lainnya (mood, genre, gaya, pola, dan sebagainya) berlaku untuk setiap lagu. Dengan `--midi`, MIDI setiap lagu disimpan di folder `<nama-rangkaian>-midi` (`lagu-01-seed….mid`, dan seterusnya). Selain WAV, rangkaian menyimpan:
 
 - `.txt`: daftar lagu dengan waktu mulai, dalam format bab YouTube. Tempel langsung ke deskripsi video.
 - `.json`: pengaturan dan seed setiap lagu.
@@ -120,7 +120,8 @@ Rangkaian 60 menit butuh beberapa menit untuk dibuat, dan WAV-nya sekitar 600 MB
 | `--keluar` | folder hasil | `./hasil` |
 | `--dari` | buat ulang dari file pengaturan `.json` | |
 | `--browser` | lokasi Chrome/Edge/Chromium | otomatis |
-| `--midi` | simpan juga file MIDI | |
+| `--midi` | simpan juga file MIDI dengan formasi band lengkap untuk genrenya | |
+| `--midi-saja` | hanya MIDI dan `.json`, tanpa WAV (lebih cepat, untuk DAW) | |
 | `--stem` | simpan juga satu WAV per instrumen | |
 | `--video` | buat juga video MP4 dari gambar diam + musik | |
 | `--ffmpeg` | lokasi ffmpeg kalau tidak ada di PATH | `ffmpeg` |
@@ -150,12 +151,14 @@ Catatan: file proyek yang dibuat sebelum 26 November 2026 belum menyimpan nama m
 
 Dengan opsi tambahan:
 
-- `--midi`: `….mid`, not lagu per instrumen untuk program musik (DAW).
+- `--midi`: `….mid` dengan formasi band lengkap untuk genrenya (lihat tabel MIDI di atas, atau `daftar`).
+- `--midi-saja`: hanya `….mid` dan `.json`, tanpa membuat audio. Lagu 3 menit selesai dalam beberapa detik. Tidak bisa digabung dengan `--stem` atau `--video`.
 - `--stem`: `…-stem-piano.wav`, `…-stem-gitar.wav`, dan seterusnya. Kerasnya dan gerak limiternya sama dengan mix lengkap, jadi kalau digabung hasilnya sama dengan lagunya. Desis piringan hitam Lo-fi tidak ikut.
 - `--video gambar.jpg`: `….mp4` 1920×1080 berisi gambar diam dan musiknya, siap diunggah ke YouTube. Butuh [ffmpeg](https://ffmpeg.org). Juga berlaku untuk `rangkaian`.
 
 ```bash
 node cli/music-maker.js buat --genre Lo-fi --durasi 180 --midi --stem --video sampul.jpg
+node cli/music-maker.js buat --genre Jazz --durasi 180 --versi 5 --midi-saja
 node cli/music-maker.js rangkaian --genre Lo-fi --menit 60 --video sampul.jpg
 ```
 
