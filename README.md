@@ -185,20 +185,22 @@ Perintah ini memakai mastering yang sama dengan aplikasi: kekerasan dibawa ke **
 - **Hanya butuh Node.js:** tidak perlu browser, dan tidak perlu `npm install`.
 - **Nama file dengan spasi** harus diberi tanda kutip, seperti contoh di atas.
 
-### MIDI Jazz: formasi sextet lengkap
+### MIDI: formasi band lengkap untuk setiap genre
 
-Untuk genre **Jazz**, file MIDI (tombol **Unduh MIDI**, atau `--midi` di CLI) berisi formasi **jazz sextet** lengkap, bukan hanya instrumen yang terdengar di aplikasi:
+File MIDI (tombol **Unduh MIDI**, atau `--midi` di CLI) berisi lebih banyak instrumen daripada yang terdengar di aplikasi. Di DAW, setiap instrumen bisa dipasang ke suara apa pun.
 
-| Jalur | Peran |
+| Genre | Jalur di MIDI |
 |---|---|
-| Saksofon tenor | Membawa melodi utama, dan memainkan solo pertama. |
-| Trompet | Bersama saksofon di melodi. Di bagian tengah memainkan harmoni (nada akor di bawah melodi). |
-| Piano | Mengiringi dengan akor jazz, solo kedua, dan melodi di bagian jeda yang tenang. |
-| Gitar (jazz guitar) | Mengiringi. |
-| Bass | Walking bass. |
-| Drum | Kit lengkap: cymbal ride swing, hi-hat pedal di ketukan 2 dan 4, kick lembut, ghost note snare, crash di awal bagian baru, dan fill dengan tom sebelum pergantian bagian. |
+| **Akustik** | Piano, Gitar, Bass, Drum, **Suling** (membawa melodi di sebagian bagian), **Cello** (harmoni di bagian tengah), **String** (alas lembut), **Perkusi** (shaker, tamborin). Untuk mood Sedih, cello yang membawa melodi, tanpa perkusi. |
+| **Lo-fi** | **Electric piano** (Rhodes, menggantikan piano), Gitar, Bass, Drum, **Pad hangat** (synth), **Vibrafon** (arpeggio di bagian tengah). |
+| **Pop** | Piano, Gitar, **Bass elektrik**, Drum (ditambah crash di awal bagian baru), **String** (di bagian yang penuh), **Perkusi** (tepuk tangan di ketukan 2 dan 4). |
+| **Bossa** | Piano, Gitar nilon, Bass, Drum, **Suling** (membawa melodi, khas bossa), **String** (alas lembut), **Perkusi** (conga, klave). |
+| **Jazz** | **Saksofon tenor** (melodi dan solo pertama), **Trompet** (bersama melodi, harmoni di bagian tengah), Piano (iringan, solo kedua), **Gitar jazz**, Bass (walking), **Drum lengkap** (cymbal ride, hi-hat pedal, ghost note, crash, fill). |
 
-Setiap jalur sudah membawa nomor instrumen General MIDI, volume, dan posisi kiri-kanan, jadi di DAW langsung terdengar seimbang. Drum memakai susunan standar General MIDI, sehingga cocok dengan drum kit apa pun. Di aplikasi, Jazz tetap terdengar dengan instrumen yang ada (piano, gitar, bass, drum).
+- **Melodi tidak dobel:** di bagian yang melodinya dibawa suling, cello, atau saksofon, piano dan gitar tidak ikut memainkan melodi.
+- **Nada aman:** semua nada harmoni, pad, dan arpeggio adalah nada akor, dan semuanya di dalam jangkauan alat sungguhan.
+- **Siap di DAW:** setiap jalur membawa nomor instrumen General MIDI, volume, dan posisi kiri-kanan. Drum dan perkusi memakai susunan standar General MIDI.
+- **String:** kalau String sudah dicentang di aplikasi, jalur String di MIDI adalah yang dari aplikasi. Kalau tidak dicentang, MIDI membuat jalur String sendiri untuk Akustik, Pop, dan Bossa.
 
 ### Alur lengkap dengan GarageBand (Mac)
 
