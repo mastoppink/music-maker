@@ -4,3 +4,7 @@ contoh/*.wav
 !contoh/klasik-*.wav
 !contoh/gitar-fingerstyle.wav
 !contoh/piano-delapan-birama.wav
+
+# CLI
+node_modules/
+hasil/

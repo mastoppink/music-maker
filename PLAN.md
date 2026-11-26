@@ -48,6 +48,7 @@ Cara kerja dengan pengguna: pengguna tidak membaca not dan tidak menilai nada. S
   - Ekspor WAV melewati `master`: gain menuju −14 LUFS dan limiter look-ahead (`limit`, batas −1,5 dBFS, true peak sekitar −1,3). Penekanan puncak dibatasi 6 dB (`maxSquashDb`), jadi lagu yang sangat tenang bisa berakhir −15 sampai −17 LUFS.
   - Putar di aplikasi memakai gain aman tanpa limiter.
 - **Ekspor**: WAV stereo 44,1 kHz.
+- **CLI** (`cli/music-maker.js`, panduan di `README.md`): menjalankan `index.html` di Edge/Chrome tanpa jendela (playwright-core), lalu menyimpan WAV yang sudah di-master plus `.json` pengaturan. Perintah: `buat` (semua opsi aplikasi, `--versi` untuk banyak lagu, `--dari` untuk membuat ulang dari `.json`), `daftar`, dan `bantuan`. Hasil `--dari` sama dengan aslinya (selisih paling besar 1 LSB).
 - **Uji otomatis**: 600 lagu per mood, 0 nada melodi di ketukan kuat yang bukan nada akor.
 
 ### Perbaikan suara yang sudah lolos dengar

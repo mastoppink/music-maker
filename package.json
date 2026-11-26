@@ -1,0 +1,18 @@
+{
+  "name": "music-maker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Generator musik instrumental: aplikasi web dan CLI",
+  "bin": {
+    "music-maker": "cli/music-maker.js"
+  },
+  "scripts": {
+    "cli": "node cli/music-maker.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "playwright-core": "1.63.0"
+  }
+}
