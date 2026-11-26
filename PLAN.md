@@ -49,6 +49,7 @@ Cara kerja dengan pengguna: pengguna tidak membaca not dan tidak menilai nada. S
   - Uji: 103.184 nada iringan dan 1.200 melodi, 0 nada di luar akor. Volume per bagian berubah paling banyak 2 dB.
 - **Durasi**: 30 detik, 1, 2, 3, dan 5 menit. Klasik panjang menyambung beberapa korale (masing-masing dua kali) dengan tempo tetap 71 BPM; korale terakhir dipilih yang paling pas dengan sisa waktu.
 - **Kecepatan**: nada dijadwalkan bertahap (`pump` saat diputar, `audio.suspend` saat render), dan nada yang selesai dilepas. Render 5 menit turun dari 112–140 detik menjadi sekitar 16 detik, dengan hasil suara identik (selisih −77 dB).
+- **Rangkaian** (CLI `rangkaian`): lagu berseed berurutan, di-master satu per satu, disambung dengan tumpang-tindih `--jeda` (bawaan 2 detik), ditulis langsung ke disk. Juga menyimpan daftar bab YouTube (.txt) dan .json. Hanya diuji singkat (1 menit); pengguna minta rangkaian 60 menit tidak dicoba dulu.
 - **Mix dan mastering**:
   - Gema ruangan buatan (`roomImpulse`, sekitar 2 detik, ber-seed sehingga hasilnya selalu sama), dikirim per instrumen (`placement.room`).
   - Posisi kiri-kanan (`placement.pan`): piano −0,22, gitar +0,26, bass dan drum di tengah.
@@ -82,8 +83,7 @@ Cara kerja dengan pengguna: pengguna tidak membaca not dan tidak menilai nada. S
 
 ## Berikutnya (urut prioritas)
 
-1. **Rangkaian 30–60 menit** dari beberapa lagu berbeda dengan jeda halus, untuk video "musik belajar/santai" (lagu 3 dan 5 menit sudah ada).
-2. **Genre Pop** di mesin kit (Akustik dan Lo-fi sudah).
-3. **Mood Melankolis.** Kit bernada minor dengan format yang sama, plus gaya yang cocok.
-4. **Simpan dan buka proyek di aplikasi web** dengan format `.json` yang sama dengan CLI (`--dari`).
-5. **Siap unggah**: ekspor per instrumen (stem), ekspor MIDI, dan video sederhana (gambar + audio). Volume standar YouTube sudah selesai.
+1. **Genre Pop** di mesin kit (Akustik dan Lo-fi sudah).
+2. **Mood Melankolis.** Kit bernada minor dengan format yang sama, plus gaya yang cocok.
+3. **Simpan dan buka proyek di aplikasi web** dengan format `.json` yang sama dengan CLI (`--dari`).
+4. **Siap unggah**: ekspor per instrumen (stem), ekspor MIDI, dan video sederhana (gambar + audio). Volume standar YouTube sudah selesai.

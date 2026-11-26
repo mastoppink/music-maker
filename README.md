@@ -48,10 +48,32 @@ CLI menjalankan aplikasi di Edge atau Chrome yang sudah ada di komputer tanpa me
 ### Perintah
 
 ```bash
-node cli/music-maker.js buat [opsi]    # buat lagu dan simpan sebagai WAV
+node cli/music-maker.js buat [opsi]       # buat lagu dan simpan sebagai WAV
+node cli/music-maker.js rangkaian [opsi]  # sambung banyak lagu menjadi satu file 30–60 menit
 node cli/music-maker.js daftar         # tampilkan mood, genre, gaya, dan pola yang tersedia
 node cli/music-maker.js bantuan        # tampilkan semua opsi
 ```
+
+### Rangkaian panjang (30–60 menit)
+
+```bash
+node cli/music-maker.js rangkaian --genre Lo-fi --menit 60
+```
+
+Menyambung banyak lagu berbeda (seed berurutan) menjadi satu WAV panjang. Setiap lagu di-master sendiri supaya kerasnya rata, lalu ekornya menyatu dengan awal lagu berikutnya. Opsi tambahan:
+
+| Opsi | Arti | Bawaan |
+|---|---|---|
+| `--menit` | panjang rangkaian | 30 |
+| `--durasi-lagu` | panjang tiap lagu dalam detik | 180 |
+| `--jeda` | lama peralihan antarlagu dalam detik | 2 |
+
+Opsi `buat` lainnya (mood, genre, gaya, pola, dan sebagainya) berlaku untuk setiap lagu. Selain WAV, rangkaian menyimpan:
+
+- `.txt`: daftar lagu dengan waktu mulai, dalam format bab YouTube. Tempel langsung ke deskripsi video.
+- `.json`: pengaturan dan seed setiap lagu.
+
+Rangkaian 60 menit butuh beberapa menit untuk dibuat, dan WAV-nya sekitar 600 MB. Karena ukurannya, rangkaian hanya tersedia di CLI, tidak di aplikasi web.
 
 ### Opsi `buat`
 

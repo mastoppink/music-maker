@@ -11,6 +11,7 @@ const help = `Music Maker CLI
 
 Pemakaian:
   node cli/music-maker.js buat [opsi]     Buat lagu dan simpan sebagai WAV
+  node cli/music-maker.js rangkaian [opsi] Sambung banyak lagu menjadi satu file panjang (30–60 menit)
   node cli/music-maker.js daftar          Tampilkan mood, genre, gaya, dan pola yang tersedia
   node cli/music-maker.js bantuan         Tampilkan teks ini
 
@@ -32,6 +33,11 @@ Opsi untuk "buat":
   --dari <file.json>                      Buat ulang lagu dari file pengaturan yang disimpan
   --browser <path>                        Path ke Chrome/Edge/Chromium kalau tidak ditemukan otomatis
 
+Opsi tambahan untuk "rangkaian" (semua opsi "buat" juga berlaku untuk setiap lagu):
+  --menit <angka>                         Panjang rangkaian. Bawaan: 30
+  --durasi-lagu <detik>                   Panjang tiap lagu. Bawaan: 180
+  --jeda <detik>                          Lama peralihan antarlagu (ekor lagu menyatu dengan awal lagu berikutnya). Bawaan: 2
+
 Setiap WAV disimpan bersama file .json berisi pengaturannya. Pakai --dari file itu
 untuk membuat lagu yang persis sama lagi.
 
@@ -39,7 +45,12 @@ Contoh:
   node cli/music-maker.js buat --durasi 180 --gaya Santai
   node cli/music-maker.js buat --mood Ceria --versi 3 --pola Drum=tipis
   node cli/music-maker.js buat --sumber klasik --durasi 300 --instrumen Piano,Bass
-  node cli/music-maker.js buat --dari hasil/tenang-akustik-kit-seed123.json`;
+  node cli/music-maker.js buat --dari hasil/tenang-akustik-kit-seed123.json
+  node cli/music-maker.js rangkaian --genre Lo-fi --menit 60
+
+Rangkaian juga menyimpan daftar lagu dengan waktu mulai (.txt) dalam format bab YouTube,
+siap ditempel ke deskripsi video. Rangkaian 60 menit butuh beberapa menit untuk dibuat
+dan menghasilkan WAV sekitar 600 MB.`;
 
 function parseArgs(argv) {
   const [command = 'bantuan', ...rest] = argv;
@@ -64,7 +75,7 @@ const pairs = (text, name) => Object.fromEntries(list(text).map(item => {
 
 // Turn command-line options into the settings the engine needs.
 function settingsFrom(opts) {
-  const known = ['mood','genre','sumber','durasi','instrumen','melodi','seed','versi','gaya','pola','variasi','volume','bisu','keluar','dari','browser','bantuan'];
+  const known = ['mood','genre','sumber','durasi','instrumen','melodi','seed','versi','gaya','pola','variasi','volume','bisu','keluar','dari','browser','bantuan','menit','durasi-lagu','jeda'];
   for (const key of Object.keys(opts)) if (!known.includes(key)) throw new Error(`Opsi tidak dikenal: --${key}. Lihat "bantuan".`);
   const base = opts.dari ? JSON.parse(fs.readFileSync(opts.dari, 'utf8')) : {};
   const s = {
@@ -208,6 +219,71 @@ async function make(opts) {
   }
 }
 
+const clock = seconds => {
+  const t = Math.round(seconds), h = Math.floor(t / 3600), m = Math.floor(t % 3600 / 60), sec = t % 60;
+  return (h ? h + ':' + String(m).padStart(2, '0') : String(m).padStart(2, '0')) + ':' + String(sec).padStart(2, '0');
+};
+
+// Long mix: songs with consecutive seeds, each mastered on its own (so loudness stays even),
+// joined with a short overlap and written straight to disk so memory stays small.
+async function mix(opts) {
+  const minutes = Number(opts.menit ?? 30), each = Number(opts['durasi-lagu'] ?? 180), fade = Number(opts.jeda ?? 2);
+  if (!(minutes >= 1 && minutes <= 180)) throw new Error('--menit harus antara 1 dan 180.');
+  if (!(each >= 20 && each <= 600)) throw new Error('--durasi-lagu harus antara 20 dan 600 detik.');
+  if (!(fade >= 0 && fade <= 10)) throw new Error('--jeda harus antara 0 dan 10 detik.');
+  const settings = settingsFrom({ ...opts, durasi: each, menit: undefined, 'durasi-lagu': undefined, jeda: undefined });
+  const outDir = path.resolve(opts.keluar ?? 'hasil');
+  fs.mkdirSync(outDir, { recursive: true });
+  const name = `rangkaian-${settings.mood}-${settings.genre}-${minutes}menit-seed${settings.seed}`.toLowerCase().replace(/[^a-z0-9-]+/g, '-');
+  const file = path.join(outDir, name + '.wav');
+  const rate = 44100, channels = 2, frameBytes = 4, overlap = Math.round(fade * rate) * frameBytes;
+  const fd = fs.openSync(file, 'w');
+  fs.writeSync(fd, Buffer.alloc(44));
+  let written = 0, held = Buffer.alloc(0);
+  const chapters = [], songs = [];
+  const browser = await launch(opts.browser);
+  try {
+    const page = await openStudio(browser);
+    for (let i = 0; written / (rate * frameBytes) < minutes * 60 - 20; i++) {
+      const s = { ...settings, seed: settings.seed + i };
+      const started = Date.now();
+      process.stdout.write(`Lagu ${i + 1} (seed ${s.seed})… `);
+      const info = await page.evaluate(renderInPage(s), s);
+      if (info.error) throw new Error(info.error);
+      const pcm = (await fetchWav(page, info.size)).subarray(44);
+      // Overlap: the held tail of the previous song is summed with the start of this one.
+      const join = Math.min(held.length, pcm.length);
+      for (let at = 0; at < join; at += 2) {
+        const v = held.readInt16LE(at) + pcm.readInt16LE(at);
+        pcm.writeInt16LE(Math.max(-32768, Math.min(32767, v)), at);
+      }
+      if (held.length > join) { fs.writeSync(fd, held.subarray(0, held.length - join)); written += held.length - join; }
+      chapters.push([written / (rate * frameBytes), `Lagu ${i + 1} · ${info.gaya ? 'Gaya ' + info.gaya : info.description.split(' · ')[0]}`]);
+      songs.push({ seed: s.seed, deskripsi: info.description, mulai: clock(written / (rate * frameBytes)) });
+      const keep = Math.min(overlap, pcm.length);
+      fs.writeSync(fd, pcm.subarray(0, pcm.length - keep)); written += pcm.length - keep;
+      held = Buffer.from(pcm.subarray(pcm.length - keep));
+      console.log(`${Math.round((Date.now() - started) / 1000)} detik · ${info.description} · sampai ${clock(written / (rate * frameBytes))}`);
+    }
+    fs.writeSync(fd, held); written += held.length;
+  } finally {
+    await browser.close();
+    // WAV header now that the size is known.
+    const head = Buffer.alloc(44);
+    head.write('RIFF', 0); head.writeUInt32LE(36 + written, 4); head.write('WAVE', 8); head.write('fmt ', 12);
+    head.writeUInt32LE(16, 16); head.writeUInt16LE(1, 20); head.writeUInt16LE(channels, 22); head.writeUInt32LE(rate, 24);
+    head.writeUInt32LE(rate * frameBytes, 28); head.writeUInt16LE(frameBytes, 32); head.writeUInt16LE(16, 34);
+    head.write('data', 36); head.writeUInt32LE(written, 40);
+    fs.writeSync(fd, head, 0, 44, 0);
+    fs.closeSync(fd);
+  }
+  fs.writeFileSync(path.join(outDir, name + '.txt'), chapters.map(([t, title]) => `${clock(t)} ${title}`).join('\n') + '\n');
+  fs.writeFileSync(path.join(outDir, name + '.json'), JSON.stringify({ ...settings, menit: minutes, 'durasi-lagu': each, jeda: fade, lagu: songs }, null, 2) + '\n');
+  console.log(`Selesai: ${clock(written / (rate * frameBytes))}, ${songs.length} lagu, ${(written / 1e6).toFixed(0)} MB`);
+  console.log(`  ${file}`);
+  console.log(`  Daftar lagu untuk deskripsi YouTube: ${path.join(outDir, name + '.txt')}`);
+}
+
 async function show(opts) {
   const browser = await launch(opts.browser);
   try {
@@ -237,6 +313,7 @@ async function show(opts) {
     const { command, opts } = parseArgs(process.argv.slice(2));
     if (opts.bantuan || ['bantuan','help','-h','--help'].includes(command)) console.log(help);
     else if (command === 'buat') await make(opts);
+    else if (command === 'rangkaian') await mix(opts);
     else if (command === 'daftar') await show(opts);
     else throw new Error(`Perintah tidak dikenal: ${command}. Lihat "node cli/music-maker.js bantuan".`);
   } catch (e) {
