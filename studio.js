@@ -230,6 +230,10 @@ function fingerpick(events, bar, root, final, lift, quiet, turn, noBass) {
   }
 }
 
+// Mix balance measured per bar (RMS): the tune must stay loudest, drums sit lowest.
+// Without these the drums buried the guitar melody once they came in.
+const trackTrim = { Bass:6, Drum:.45 };
+const gitarMelodyBoost = 6;
 function arrange(name, variant = 0) {
   rand = rng(song.seed ^ hashName(name) ^ Math.imul(variant + 1, 2654435761));
   const bars = song.harmony.length;
@@ -239,12 +243,13 @@ function arrange(name, variant = 0) {
   for (let bar = 0; bar < bars; bar++) {
     const { root, lift, cadence, final } = song.harmony[bar];
     const role = roles(bar);
-    const add = (beat, note, len, level, delay = 0) => events.push({
-      step: bar * 8 + beat, note, len, level: level * (.94 + .06 * rand()), delay: delay + rand() * .008 });
-    const playMelody = (octave, base) => {
+    // boost scales loudness only, without changing which recorded layer is used.
+    const add = (beat, note, len, level, delay = 0, boost = 1) => events.push({
+      step: bar * 8 + beat, note, len, level: level * (.94 + .06 * rand()), delay: delay + rand() * .008, boost });
+    const playMelody = (octave, base, boost = 1) => {
       for (const [onset, len, degree] of song.melody[bar]) {
         const strong = onset % 4 === 0;
-        add(onset, pitch(degree) + octave, final ? 7.6 : len, base + (strong ? .06 : 0), strong ? .03 : .015);
+        add(onset, pitch(degree) + octave, final ? 7.6 : len, base + (strong ? .06 : 0), strong ? .03 : .015, boost);
       }
     };
     if (name === 'Piano') {
@@ -263,7 +268,7 @@ function arrange(name, variant = 0) {
         if (role.melody !== 'Piano' && !final) add(4, pitch(root + 7) - 12, 3.5, .17, .02);
       }
     } else if (name === 'Gitar') {
-      if (role.melody === 'Gitar') playMelody(0, .63);
+      if (role.melody === 'Gitar') playMelody(0, .63, gitarMelodyBoost);
       if (role.chords === 'Gitar') {
         const quiet = role.melody !== 'Gitar' || alone;
         fingerpick(events, bar, root, final, lift, quiet, turn, role.bass);
@@ -397,7 +402,8 @@ function voice(track,event,when,audio=ctx,remaining=song.duration-(when-start)) 
   gain.connect(track.bus);
   // Recorded layers already carry most of the loudness change, so scale gain gently.
   const shaped = track.name==='Gitar' ? event.level : Math.sqrt(event.level*.4);
-  const peak = ({ Piano:.55, Gitar:.59, Bass:.68, Drum:.62 })[track.name] * shaped;
+  const peak = ({ Piano:.55, Gitar:.59, Bass:.68, Drum:.62 })[track.name] * shaped
+    * (trackTrim[track.name] ?? 1) * (event.boost ?? 1);
   gain.gain.setValueAtTime(peak,when);
   gain.gain.setValueAtTime(peak,when+Math.max(.002,length-release));
   if (track.name === 'Piano') gain.gain.linearRampToValueAtTime(0,when+length);
