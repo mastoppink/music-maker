@@ -74,6 +74,7 @@ CLI menjalankan aplikasi di Edge atau Chrome yang sudah ada di komputer tanpa me
 ```bash
 node cli/music-maker.js buat [opsi]       # buat lagu dan simpan sebagai WAV
 node cli/music-maker.js rangkaian [opsi]  # sambung banyak lagu menjadi satu file 30–60 menit
+node cli/music-maker.js master <file...>  # atur volume file audio (misalnya hasil DAW) ke standar YouTube
 node cli/music-maker.js daftar         # tampilkan mood, genre, gaya, dan pola yang tersedia
 node cli/music-maker.js bantuan        # tampilkan semua opsi
 ```
@@ -160,6 +161,40 @@ node cli/music-maker.js rangkaian --genre Lo-fi --menit 60 --video sampul.jpg
 
 Di layar, CLI menampilkan deskripsi lagu, durasi, kekerasan suara (LUFS), dan puncak suara.
 
+### Mastering hasil DAW (`master`)
+
+Untuk lagu yang dimainkan ulang di program musik (DAW) dari MIDI kita, misalnya dengan instrumen yang lebih bagus di GarageBand:
+
+```bash
+node cli/music-maker.js master "~/Music/Lagu Saya.wav"
+node cli/music-maker.js master lagu1.aiff lagu2.aiff --keluar siap-unggah
+```
+
+Perintah ini memakai mastering yang sama dengan aplikasi: kekerasan dibawa ke **−14 LUFS** (acuan YouTube), limiter menjaga denting tetap utuh (penekanan paling banyak 6 dB), dan **true peak** (puncak di antara sampel, yang bisa pecah setelah YouTube mengubah format) dijaga di bawah −1 dB. Hasilnya `nama-master.wav`, dengan sample rate yang sama dengan file asli.
+
+| Opsi | Arti | Bawaan |
+|---|---|---|
+| `--target` | kekerasan tujuan dalam LUFS (−24 sampai −8) | −14 |
+| `--bit` | WAV 24-bit, atau 16-bit (dengan dither) | 24 |
+| `--keluar` | folder hasil | folder file asli |
+| `--ffmpeg` | lokasi ffmpeg, hanya perlu untuk MP3, M4A, FLAC, dan lainnya | `ffmpeg` |
+
+- **Format yang dibaca langsung:** WAV (16/24/32-bit, float) dan AIFF (format bawaan Mac). Format lain dibaca lewat [ffmpeg](https://ffmpeg.org) kalau terpasang.
+- **Laporan di layar:** kekerasan dan puncak sebelum dan sesudah, seberapa dalam limiter bekerja, dan catatan kalau ada hening panjang di awal atau akhir, atau file mono.
+- **Musik yang sangat tenang** bisa berakhir sedikit di bawah −14 LUFS. Itu disengaja, supaya puncaknya tidak ditekan terlalu banyak.
+- **Hanya butuh Node.js:** tidak perlu browser, dan tidak perlu `npm install`.
+- **Nama file dengan spasi** harus diberi tanda kutip, seperti contoh di atas.
+
+### Alur lengkap dengan GarageBand (Mac)
+
+1. Buat lagu di aplikasi lalu tekan **Unduh MIDI**, atau lewat CLI dengan `--midi`. Tambahkan `--stem` kalau ingin memakai sebagian instrumen dari aplikasi.
+2. Buka file `.mid` di GarageBand. Setiap instrumen jadi satu jalur, dan temponya ikut terbaca.
+3. Ganti instrumen di jalur yang ingin diperbagus, misalnya piano. Jangan pakai quantize, karena pergeseran waktu kecil dan swing-nya memang disengaja.
+4. **Bagikan > Ekspor Lagu ke Disk**, lalu pilih WAV atau AIFF dengan kualitas tertinggi.
+5. Jalankan `node cli/music-maker.js master "lagu.wav"`. File `lagu-master.wav` siap diunggah.
+
+Sebelum menjual, periksa lisensi setiap instrumen yang dipakai di DAW. Sebagian besar instrumen gratis boleh dipakai untuk musik komersial, tapi aturannya berbeda-beda.
+
 ## Kualitas suara
 
 - **Dinamika per frasa**: melodi mengeras menuju tengah frasa lalu melembut, nada tinggi sedikit ditekankan, dan bagian penuh lebih bertenaga daripada bagian tenang, seperti dimainkan orang.
@@ -182,4 +217,5 @@ Sebelum mengunggah ke YouTube, periksa juga kebijakan monetisasi terbaru, teruta
 | `classics.js` | 24 korale J.S. Bach |
 | `samples.js` | rekaman instrumen (CC0), ditanam sebagai base64: piano, gitar nilon, kontrabas, drum (kick, snare, rim, shaker, hi-hat), dan string |
 | `cli/music-maker.js` | versi baris perintah |
+| `cli/mastering.js` | mastering untuk perintah `master` (baca WAV/AIFF, LUFS, limiter, true peak, tulis WAV) |
 | `PLAN.md` | keadaan sekarang, riwayat keputusan, dan rencana berikutnya |

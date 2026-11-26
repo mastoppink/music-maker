@@ -12,6 +12,7 @@ const help = `Music Maker CLI
 Pemakaian:
   node cli/music-maker.js buat [opsi]     Buat lagu dan simpan sebagai WAV
   node cli/music-maker.js rangkaian [opsi] Sambung banyak lagu menjadi satu file panjang (30–60 menit)
+  node cli/music-maker.js master <file...> Atur volume file audio (misalnya hasil DAW) ke standar YouTube
   node cli/music-maker.js daftar          Tampilkan mood, genre, gaya, dan pola yang tersedia
   node cli/music-maker.js bantuan         Tampilkan teks ini
 
@@ -42,6 +43,12 @@ Opsi tambahan untuk "rangkaian" (semua opsi "buat" juga berlaku untuk setiap lag
   --durasi-lagu <detik>                   Panjang tiap lagu. Bawaan: 180
   --jeda <detik>                          Lama peralihan antarlagu (ekor lagu menyatu dengan awal lagu berikutnya). Bawaan: 2
 
+Opsi untuk "master":
+  --target <LUFS>                         Kekerasan tujuan. Bawaan: -14 (acuan YouTube)
+  --bit <24|16>                           Kedalaman bit WAV hasil. Bawaan: 24
+  --keluar <folder>                       Folder hasil. Bawaan: folder yang sama dengan file asli
+  --ffmpeg <path>                         Untuk membaca MP3, M4A, FLAC, dan lainnya (WAV dan AIFF tidak perlu)
+
 Setiap WAV disimpan bersama file .json berisi pengaturannya. Pakai --dari file itu
 untuk membuat lagu yang persis sama lagi.
 
@@ -51,6 +58,7 @@ Contoh:
   node cli/music-maker.js buat --sumber klasik --durasi 300 --instrumen Piano,Bass
   node cli/music-maker.js buat --dari hasil/tenang-akustik-kit-seed123.json
   node cli/music-maker.js rangkaian --genre Lo-fi --menit 60
+  node cli/music-maker.js master ~/Music/lagu-dari-garageband.wav
 
 Rangkaian juga menyimpan daftar lagu dengan waktu mulai (.txt) dalam format bab YouTube,
 siap ditempel ke deskripsi video. Rangkaian 60 menit butuh beberapa menit untuk dibuat
@@ -62,7 +70,10 @@ function parseArgs(argv) {
   for (let i = 0; i < rest.length; i++) {
     const arg = rest[i];
     if (arg === '-h' || arg === '--help' || arg === '--bantuan') { opts.bantuan = true; continue; }
-    if (!arg.startsWith('--')) throw new Error(`Argumen tidak dikenal: ${arg}`);
+    if (!arg.startsWith('--')) {
+      if (command === 'master') { (opts._ ??= []).push(arg); continue; }
+      throw new Error(`Argumen tidak dikenal: ${arg}`);
+    }
     const [key, inline] = arg.slice(2).split(/=(.*)/s);
     // On/off switches need no value.
     if (['midi', 'stem'].includes(key) && inline === undefined) { opts[key] = true; continue; }
@@ -320,6 +331,46 @@ async function mix(opts) {
   }
 }
 
+// Master finished audio files (e.g. exported from a DAW) with the app's own method.
+function masterFiles(opts) {
+  const files = opts._ ?? [];
+  if (!files.length) throw new Error('Sebutkan file yang mau di-master, misalnya: node cli/music-maker.js master lagu.wav');
+  const known = ['_', 'target', 'bit', 'keluar', 'ffmpeg', 'bantuan'];
+  for (const key of Object.keys(opts)) if (!known.includes(key)) throw new Error(`Opsi tidak dikenal untuk master: --${key}. Lihat "bantuan".`);
+  const target = Number(opts.target ?? -14), bits = Number(opts.bit ?? 24);
+  if (!(target >= -24 && target <= -8)) throw new Error('--target harus antara -24 dan -8 LUFS.');
+  if (![16, 24].includes(bits)) throw new Error('--bit harus 16 atau 24.');
+  const m = require('./mastering');
+  const db = x => (20 * Math.log10(Math.max(x, 1e-9))).toFixed(1);
+  for (const file of files) {
+    if (!fs.existsSync(file)) throw new Error(`File tidak ditemukan: ${file}`);
+    const started = Date.now();
+    process.stdout.write(`Mastering ${path.basename(file)}… `);
+    const audio = m.readAudio(file, opts.ffmpeg);
+    const seconds = audio.channels[0].length / audio.rate;
+    if (seconds > 30 * 60) throw new Error('File lebih dari 30 menit. Untuk rangkaian panjang, pakai perintah "rangkaian" (setiap lagu di-master sendiri).');
+    const before = { lufs: m.loudness(audio.channels, audio.rate), peak: m.peakOf(audio.channels) };
+    const done = m.master(audio, { target });
+    const after = { lufs: m.loudness(done.channels, audio.rate), tp: m.truePeak(done.channels) };
+    const outDir = opts.keluar ? path.resolve(opts.keluar) : path.dirname(path.resolve(file));
+    fs.mkdirSync(outDir, { recursive: true });
+    const out = path.join(outDir, path.basename(file).replace(/\.[^.]+$/, '') + '-master.wav');
+    m.writeWav(out, done.channels, audio.rate, bits);
+    console.log(`selesai dalam ${Math.round((Date.now() - started) / 1000)} detik`);
+    const len = `${Math.floor(seconds / 60)}:${String(Math.round(seconds % 60)).padStart(2, '0')}`;
+    console.log(`  ${len} · ${audio.rate} Hz · ${audio.channels.length === 1 ? 'mono' : 'stereo'}`);
+    console.log(`  Sebelum: ${before.lufs.toFixed(1)} LUFS, puncak ${db(before.peak)} dB`);
+    console.log(`  Sesudah: ${after.lufs.toFixed(1)} LUFS, true peak ${db(after.tp)} dBTP (gain ${done.gainDb >= 0 ? '+' : ''}${done.gainDb.toFixed(1)} dB, limiter paling dalam ${done.squashDb.toFixed(1)} dB)`);
+    if (after.lufs < target - .5)
+      console.log(`  Catatan: berhenti di ${after.lufs.toFixed(1)} LUFS supaya puncak tidak ditekan lebih dari 6 dB (suara bisa jadi gepeng). Ini wajar untuk musik yang sangat tenang.`);
+    if (audio.channels.length === 1) console.log('  Catatan: file mono. YouTube menerimanya, tapi ekspor stereo dari DAW biasanya lebih baik.');
+    const gap = m.silence(done.channels, audio.rate);
+    if (gap.lead > 1) console.log(`  Catatan: ada ${gap.lead.toFixed(1)} detik hening di awal. Pertimbangkan memotongnya di DAW.`);
+    if (gap.trail > 4) console.log(`  Catatan: ada ${gap.trail.toFixed(1)} detik hening di akhir.`);
+    console.log(`  Disimpan: ${out} (WAV ${bits}-bit)`);
+  }
+}
+
 async function show(opts) {
   const browser = await launch(opts.browser);
   try {
@@ -350,6 +401,7 @@ async function show(opts) {
     if (opts.bantuan || ['bantuan','help','-h','--help'].includes(command)) console.log(help);
     else if (command === 'buat') await make(opts);
     else if (command === 'rangkaian') await mix(opts);
+    else if (command === 'master') masterFiles(opts);
     else if (command === 'daftar') await show(opts);
     else throw new Error(`Perintah tidak dikenal: ${command}. Lihat "node cli/music-maker.js bantuan".`);
   } catch (e) {
