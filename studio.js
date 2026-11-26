@@ -1324,9 +1324,68 @@ async function songFromProject(p) {
   }
   return { notes };
 }
+// ---- Full jazz band for MIDI (sextet) ----
+// The app plays Jazz as a small group with the samples it has. In the MIDI file, where any
+// instrument can be chosen in the DAW, Jazz becomes a full sextet:
+//   tenor saxophone  the tune (an octave down, tenor range) and the first solo
+//   trumpet          with the sax on the tune; in the middle sections a chord tone below it
+//   piano            comping; the second solo; the tune in the quiet pause section
+//   guitar, bass     comping and walking bass, as in the app
+//   drums            full kit in General MIDI: swing ride, hi-hat foot on 2 and 4,
+//                    feathered kick, ghost notes, crash at new sections, fills before them
+const hornSection = section => !['intro', 'pause', 'solo2'].includes(section);
+function jazzBand() {
+  const H = song.harmony, sax = [], trumpet = [], drums = [];
+  const rnd = rng(song.seed ^ 0x7a22);
+  const note = (list, step, len, pitchValue, velocity, delay = .015) =>
+    list.push({ at: onset({ step, delay }), seconds: len * song.step, note: pitchValue, velocity: Math.round(velocity) });
+  for (let bar = 0; bar < H.length; bar++) {
+    const h = H[bar], section = h.section;
+    keyNow = keyAt(bar);
+    const chordTone = d => [0, 2, 4, 6].includes(((d - h.root) % 7 + 7) % 7);
+    if (hornSection(section)) for (const [on, len, d] of song.melody[bar]) {
+      if (d === null) continue;
+      const strong = on % 4 === 0, held = (h.final ? 7.6 : len) * .95, step = bar * 8 + on;
+      note(sax, step, held, pitch(d) - 12, strong ? 92 : 80);
+      if (section === 'solo') continue;
+      if (section === 'B' || section === 'B2') {
+        let below = d - 1;
+        while (below > d - 6 && !chordTone(below)) below--;
+        if (chordTone(below)) note(trumpet, step, held, pitch(below), strong ? 84 : 72);
+      } else {
+        // Keep the trumpet in its comfortable range (up to C6); higher notes go an octave down.
+        const t = pitch(d) > 84 ? pitch(d) - 12 : pitch(d);
+        note(trumpet, step, held, t, strong ? 86 : 74);
+      }
+    }
+    keyNow = null;
+    // Drums play where the app's drums play (sections with energy).
+    if ((h.energy ?? 1) < 1) continue;
+    const at = bar * 8, hit = (step, gm, velocity) => note(drums, at + step, .4, gm, velocity + (rnd() - .5) * 10, 0);
+    const newSection = bar > 0 && h.pos === 0 && H[bar - 1].section !== section;
+    if (h.final) { hit(0, 49, 90); hit(0, 36, 80); hit(0, 51, 70); continue; }
+    if (newSection) { hit(0, 49, 88); hit(0, 36, 78); }
+    const fill = h.pos === 3 && H[bar + 1] && H[bar + 1].section !== section && !H[bar + 1].final;
+    const ride = fill ? [[0,70],[2,82],[3,58]] : [[0,70],[2,82],[3,58],[4,70],[6,82],[7,58]];
+    for (const [st, v] of ride) hit(st, 51, v * (h.energy === 2 ? 1.08 : 1));
+    for (const st of [2, 6]) hit(st, 44, 66);
+    for (const st of [0, 2, 4, 6]) if (!(fill && st >= 4)) hit(st, 36, 34);
+    if (fill) { hit(4, 38, 70); hit(5, 38, 76); hit(6, 48, 82); hit(7, 45, 88); }
+    else for (const st of [1, 3, 5, 7]) if (rnd() < (h.energy === 2 ? .3 : .18)) hit(st, 38, 30 + rnd() * 12);
+  }
+  return { sax, trumpet, drums };
+}
+
 // ---- MIDI export (Standard MIDI File, one track per instrument) ----
 // Timing follows the song as played (swing, slowing down), at 480 ticks per quarter note.
-const midiSetup = { Piano:{ channel:0, program:0 }, Gitar:{ channel:1, program:24 }, Bass:{ channel:2, program:32 }, Drum:{ channel:9 }, String:{ channel:3, program:48 } };
+// Each track starts with its instrument (General MIDI), volume and pan, so it opens balanced.
+const midiSetup = {
+  Piano:{ channel:0, program:0, volume:92, pan:54 }, Gitar:{ channel:1, program:24, volume:80, pan:84 },
+  Bass:{ channel:2, program:32, volume:100, pan:64 }, Drum:{ channel:9, volume:96, pan:64 },
+  String:{ channel:3, program:48, volume:78, pan:70 },
+  Saksofon:{ channel:4, program:66, volume:100, pan:50, name:'Saksofon tenor' },
+  Trompet:{ channel:5, program:56, volume:90, pan:80 }
+};
 const midiDrums = { kick:36, snare:38, rim:37, hat:82, hhc:42, hhl:46, hhp:44 };
 function midiFile() {
   const ppq = 480, tick = seconds => Math.max(0, Math.round(seconds / song.step * ppq / 2));
@@ -1343,18 +1402,35 @@ function midiFile() {
   };
   const usPerQuarter = Math.round(song.step * 2 * 1e6);
   const tracks = [track('Music Maker', [[0, 0, [0xff, 0x51, 3, usPerQuarter >> 16 & 255, usPerQuarter >> 8 & 255, usPerQuarter & 255]]])];
+  const fullJazz = song.genre === 'Jazz' && song.harmony;
+  const band = fullJazz ? jazzBand() : null;
+  const parts = [];
   for (const t of song.tracks) {
-    const setup = midiSetup[t.name], ch = setup.channel, list = [];
-    if (setup.program !== undefined) list.push([0, 0, [0xc0 | ch, setup.program]]);
+    if (fullJazz && t.name === 'Drum') { parts.push(['Drum', band.drums]); continue; }
+    const list = [];
     for (const e of t.events) {
-      const note = t.name === 'Drum' ? midiDrums[e.note] : e.note;
-      if (note === undefined || note < 0 || note > 127) continue;
-      const start = tick(onset(e));
-      const seconds = t.name === 'Drum' ? song.step / 2 : e.ring ?? e.len * song.step;
-      const velocity = Math.max(15, Math.min(127, Math.round(30 + e.level * 160 + ((e.boost ?? 1) > 1 ? 15 : 0))));
-      list.push([start, 1, [0x90 | ch, note, velocity]], [start + Math.max(1, tick(seconds)), 0, [0x80 | ch, note, 0]]);
+      // In the full jazz band the horns carry the tune wherever they play.
+      if (fullJazz && e.tune && hornSection(song.harmony[Math.min(song.harmony.length - 1, Math.floor(e.step / 8))].section)) continue;
+      const noteValue = t.name === 'Drum' ? midiDrums[e.note] : e.note;
+      if (noteValue === undefined || noteValue < 0 || noteValue > 127) continue;
+      list.push({ at: onset(e), seconds: t.name === 'Drum' ? song.step / 2 : e.ring ?? e.len * song.step, note: noteValue,
+        velocity: Math.round(30 + e.level * 160 + ((e.boost ?? 1) > 1 ? 15 : 0)) });
     }
-    tracks.push(track(t.name, list));
+    parts.push([t.name, list]);
+  }
+  if (fullJazz) parts.push(['Saksofon', band.sax], ['Trompet', band.trumpet]);
+  for (const [name, list] of parts) {
+    const setup = midiSetup[name], ch = setup.channel, out = [];
+    // Jazz guitar sound for the guitar in Jazz.
+    const program = name === 'Gitar' && song.genre === 'Jazz' ? 26 : setup.program;
+    if (program !== undefined) out.push([0, 0, [0xc0 | ch, program]]);
+    out.push([0, 0, [0xb0 | ch, 7, setup.volume]], [0, 0, [0xb0 | ch, 10, setup.pan]]);
+    for (const n of list) {
+      if (n.note < 0 || n.note > 127) continue;
+      const start = tick(n.at), velocity = Math.max(15, Math.min(127, n.velocity));
+      out.push([start, 1, [0x90 | ch, n.note, velocity]], [start + Math.max(1, tick(n.seconds)), 0, [0x80 | ch, n.note, 0]]);
+    }
+    tracks.push(track(setup.name ?? name, out));
   }
   return new Uint8Array([...chunk('MThd', [0, 1, 0, tracks.length, ppq >> 8, ppq & 255]), ...tracks.flat()]);
 }

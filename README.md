@@ -185,6 +185,21 @@ Perintah ini memakai mastering yang sama dengan aplikasi: kekerasan dibawa ke **
 - **Hanya butuh Node.js:** tidak perlu browser, dan tidak perlu `npm install`.
 - **Nama file dengan spasi** harus diberi tanda kutip, seperti contoh di atas.
 
+### MIDI Jazz: formasi sextet lengkap
+
+Untuk genre **Jazz**, file MIDI (tombol **Unduh MIDI**, atau `--midi` di CLI) berisi formasi **jazz sextet** lengkap, bukan hanya instrumen yang terdengar di aplikasi:
+
+| Jalur | Peran |
+|---|---|
+| Saksofon tenor | Membawa melodi utama, dan memainkan solo pertama. |
+| Trompet | Bersama saksofon di melodi. Di bagian tengah memainkan harmoni (nada akor di bawah melodi). |
+| Piano | Mengiringi dengan akor jazz, solo kedua, dan melodi di bagian jeda yang tenang. |
+| Gitar (jazz guitar) | Mengiringi. |
+| Bass | Walking bass. |
+| Drum | Kit lengkap: cymbal ride swing, hi-hat pedal di ketukan 2 dan 4, kick lembut, ghost note snare, crash di awal bagian baru, dan fill dengan tom sebelum pergantian bagian. |
+
+Setiap jalur sudah membawa nomor instrumen General MIDI, volume, dan posisi kiri-kanan, jadi di DAW langsung terdengar seimbang. Drum memakai susunan standar General MIDI, sehingga cocok dengan drum kit apa pun. Di aplikasi, Jazz tetap terdengar dengan instrumen yang ada (piano, gitar, bass, drum).
+
 ### Alur lengkap dengan GarageBand (Mac)
 
 1. Buat lagu di aplikasi lalu tekan **Unduh MIDI**, atau lewat CLI dengan `--midi`. Tambahkan `--stem` kalau ingin memakai sebagian instrumen dari aplikasi.
