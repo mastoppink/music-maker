@@ -30,7 +30,7 @@ Keduanya memakai mesin musik yang sama (`studio.js`), jadi pengaturan yang sama 
 | Melodi | Gantian piano & gitar, atau Piano saja |
 | Durasi | 30 detik, 1, 2, 3, 5 menit |
 
-Gaya lagu, bentuk lagu (pembuka, melodi utama, bagian tengah, jeda, penutup), dan pola per instrumen saat ini berlaku penuh untuk **Kit orisinal** dengan genre **Akustik**, **Lo-fi**, atau **Pop** dan mood **Tenang** atau **Ceria**. Pop punya drum pop atau balada, bass berdenyut, dan akor piano berdenyut. Lo-fi punya ketukan diayun, akor piano jazz, drum boom-bap, suara hangat dengan goyang kaset, dan desis piringan hitam. Kombinasi lain memakai mesin lama yang lebih sederhana (lihat `PLAN.md`).
+Gaya lagu, bentuk lagu (pembuka, melodi utama, bagian tengah, jeda, penutup), dan pola per instrumen saat ini berlaku penuh untuk **Kit orisinal** untuk semua genre (**Akustik**, **Lo-fi**, **Pop**) dan semua mood (**Tenang**, **Ceria**, **Melankolis**). Melankolis memakai melodi bernada minor yang ditulis khusus. Pop punya drum pop atau balada, bass berdenyut, dan akor piano berdenyut. Lo-fi punya ketukan diayun, akor piano jazz, drum boom-bap, suara hangat dengan goyang kaset, dan desis piringan hitam. 
 
 ## CLI
 

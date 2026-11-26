@@ -30,6 +30,15 @@ async function loadBank(name) {
   }
 }
 const tuning = { LowE:40, A:45, D:50, G:55, B:59, HighE:64 };
+// Minor songs use A-minor open shapes: i = Am, iv = Dm, v = Em, VI = F (capo from A).
+const minorGrips = {
+  0:{A:0,D:2,G:2,B:1,HighE:0},
+  3:{D:0,G:2,B:3,HighE:1},
+  4:{LowE:0,A:2,D:2,G:0,B:0,HighE:0},
+  5:{LowE:1,A:3,D:3,G:2,B:1,HighE:1}
+};
+const gripTable = () => song.minor ? minorGrips : grips;
+const capoAt = bar => keyAt(bar) - (song.minor ? 57 : 60);
 const grips = {
   0:{A:3,D:2,G:0,B:1,HighE:0},
   3:{LowE:1,A:3,D:3,G:2,B:1,HighE:1},
@@ -63,7 +72,8 @@ const keyAt = bar => song.key + (song.harmony?.[bar]?.shift ?? 0);
 const varietyOptions = ['pola','rehat','naik','oktaf','tukar'];
 const vary = name => song.vary?.[name] !== false;
 let keyNow = null;   // set per bar while arranging
-const pitch = degree => (keyNow ?? song.key) + scaleSteps[((degree % 7) + 7) % 7] + 12 * Math.floor(degree / 7);
+const minorSteps = [0, 2, 3, 5, 7, 8, 10];
+const pitch = degree => (keyNow ?? song.key) + (song.minor ? minorSteps : scaleSteps)[((degree % 7) + 7) % 7] + 12 * Math.floor(degree / 7);
 
 // Hand-written four-bar kits for Akustik · Tenang. Chords are scale-degree roots
 // (0 = I, 3 = IV, 4 = V, 5 = vi). Melody notes are [bar, onset, length, degree] in
@@ -129,6 +139,38 @@ const kits = [
     [0,0,3,9],[0,3,1,7],[0,4,4,5],
     [1,0,2,4],[1,2,2,7],[1,4,4,9],
     [2,0,3,10],[2,3,1,9],[2,4,4,7],
+    [3,0,2,8],[3,2,2,6],[3,4,4,4]] },
+  // Minor kits for Melankolis. Same degrees and rules, played in natural minor:
+  // 0 = i, 3 = iv, 4 = v, 5 = VI.
+  { name:'Sepi', kind:'a', minor:true, chords:[0,5,3,4], melody:[
+    [0,0,4,4],[0,4,2,2],[0,6,2,3],
+    [1,0,3,5],[1,3,1,4],[1,4,4,2],
+    [2,0,2,3],[2,2,2,5],[2,4,3,7],[2,7,1,5],
+    [3,0,6,4],[3,6,2,6]] },
+  { name:'Kenang', kind:'a', minor:true, chords:[0,3,0,4], melody:[
+    [0,0,2,7],[0,2,2,6],[0,4,4,4],
+    [1,0,3,5],[1,3,1,3],[1,4,4,0],
+    [2,0,2,2],[2,2,2,3],[2,4,2,4],[2,6,2,6],
+    [3,0,4,6],[3,4,4,4]] },
+  { name:'Rintik', kind:'a', minor:true, chords:[0,4,5,3], melody:[
+    [0,0,3,0],[0,3,1,2],[0,4,4,4],
+    [1,0,2,6],[1,2,2,4],[1,4,4,1],
+    [2,0,3,0],[2,3,1,2],[2,4,2,5],[2,6,2,4],
+    [3,0,4,3],[3,4,2,5],[3,6,2,4]] },
+  { name:'Pulang', kind:'a', minor:true, chords:[5,3,0,4], melody:[
+    [0,0,2,7],[0,2,2,5],[0,4,4,2],
+    [1,0,3,3],[1,3,1,2],[1,4,4,0],
+    [2,0,2,2],[2,2,2,4],[2,4,3,7],[2,7,1,6],
+    [3,0,6,4],[3,6,2,1]] },
+  { name:'Malam Panjang', kind:'b', minor:true, chords:[3,0,5,4], melody:[
+    [0,0,4,10],[0,4,2,7],[0,6,2,8],
+    [1,0,3,9],[1,3,1,8],[1,4,4,7],
+    [2,0,2,9],[2,2,2,7],[2,4,4,5],
+    [3,0,4,8],[3,4,4,6]] },
+  { name:'Lirih', kind:'b', minor:true, chords:[5,3,0,4], melody:[
+    [0,0,3,9],[0,3,1,8],[0,4,4,7],
+    [1,0,2,7],[1,2,2,8],[1,4,4,10],
+    [2,0,3,9],[2,3,1,7],[2,4,4,4],
     [3,0,2,8],[3,2,2,6],[3,4,4,4]] }
 ];
 
@@ -154,7 +196,12 @@ const styles = [
   { name:'Cerah',      genre:'Pop',     mood:'Ceria',  weight:2, feel:'asli',    bpm:[100,108], guitar:'genjreng', piano:'pulsa', drum:'pop',    bass:'delapan' },
   { name:'Lari pagi',  genre:'Pop',     mood:'Ceria',  weight:1, feel:'rapat',   bpm:[108,116], guitar:'genjreng', piano:'pecah', drum:'pop',    bass:'delapan' },
   { name:'Balada',     genre:'Pop',     mood:'Tenang', weight:2, feel:'panjang', bpm:[66,72],   guitar:'petik',    piano:'blok',  drum:'balada', bass:'tahan' },
-  { name:'Hangat',     genre:'Pop',     mood:'Tenang', weight:1, feel:'asli',    bpm:[76,82],   guitar:'genjreng', piano:'pecah', drum:'balada', bass:'dua' }
+  { name:'Hangat',     genre:'Pop',     mood:'Tenang', weight:1, feel:'asli',    bpm:[76,82],   guitar:'genjreng', piano:'pecah', drum:'balada', bass:'dua' },
+  // Melankolis: minor kits, slower, softer.
+  { name:'Sendu',      genre:'Akustik', mood:'Melankolis', weight:2, feel:'panjang', bpm:[60,66], guitar:'petik', piano:'blok',  drum:'tipis' },
+  { name:'Kenangan',   genre:'Akustik', mood:'Melankolis', weight:1, feel:'asli',    bpm:[68,74], guitar:'petik', piano:'pecah', drum:'lembut' },
+  { name:'Gerimis',    genre:'Lo-fi',   mood:'Melankolis', weight:1, feel:'panjang', bpm:[66,72], guitar:'petik', piano:'jazz',  drum:'lofi',   bass:'tahan' },
+  { name:'Patah hati', genre:'Pop',     mood:'Melankolis', weight:1, feel:'panjang', bpm:[64,70], guitar:'petik', piano:'pecah', drum:'balada', bass:'tahan' }
 ];
 function pickStyle(mood, genre, r) {
   const pool = styles.filter(s => s.mood === mood && s.genre === genre);
@@ -206,11 +253,13 @@ function planSong(bars) {
   const choose = list => list[Math.floor(r() * list.length)];
   // song.onlyKit (a kit name) plays that single kit throughout, for auditioning kits.
   const solo = kits.find(k => k.name === song.onlyKit);
-  const main = solo ?? choose(kits.filter(k => k.kind === 'a'));
-  const middle = solo ?? choose(kits.filter(k => k.kind === 'b'));
+  // Minor (Melankolis) songs draw from the minor kits, the others from the major ones.
+  const pool = kits.filter(k => !!k.minor === !!song.minor);
+  const main = solo ?? choose(pool.filter(k => k.kind === 'a'));
+  const middle = solo ?? choose(pool.filter(k => k.kind === 'b'));
   // Second tunes for long songs (picked after the first two so short songs stay the same).
-  const main2 = solo ?? choose(kits.filter(k => k.kind === 'a' && k !== main));
-  const middle2 = solo ?? choose(kits.filter(k => k.kind === 'b' && k !== middle));
+  const main2 = solo ?? choose(pool.filter(k => k.kind === 'a' && k !== main));
+  const middle2 = solo ?? choose(pool.filter(k => k.kind === 'b' && k !== middle));
   const kitFor = { intro:main, A:main, Av:main, outro:main, pause:main, B:middle, B2:middle2, C:main2, Cv:main2 };
   const phrases = bars / 4;
   const form = songForm(phrases);
@@ -320,9 +369,9 @@ const partOptions = {
 const variationCount = { Gitar:{ petik:3, genjreng:2 }, Piano:{ blok:3, pecah:3, jazz:2, pulsa:2 }, Bass:{ tahan:2, dua:2, delapan:2 }, Drum:{ lembut:2, tipis:2, jalan:2, lofi:2, pop:2, balada:2 } };
 
 function fingerpick(events, bar, root, final, lift, quiet, turn, noBass, v = 0) {
-  const grip = grips[root];
+  const grip = gripTable()[root];
   const strings = Object.keys(grip);
-  const capo = keyAt(bar) - 60;
+  const capo = capoAt(bar);
   function pluck(step, string, level, delay = 0) {
     events.push({ step: bar * 8 + step, string, note: tuning[string] + grip[string] + capo,
       level: level * (.96 + .08 * rand()), delay: delay + .004 * rand(), len: 3 });
@@ -363,8 +412,8 @@ function fingerpick(events, bar, root, final, lift, quiet, turn, noBass, v = 0) 
 
 // Soft strummed guitar: whole chord, down strokes low to high, light up strokes on top.
 function strum(events, bar, root, final, noBass, v = 0) {
-  const grip = grips[root];
-  const capo = keyAt(bar) - 60;
+  const grip = gripTable()[root];
+  const capo = capoAt(bar);
   let strings = Object.keys(grip);
   const hit = (step, up, level) => {
     const set = up ? strings.slice(-3).reverse() : strings;
@@ -467,7 +516,7 @@ function arrange(name, variant = 0) {
         if (role.chords !== 'Gitar') {
           // Thumb notes under the tune, as a fingerstyle player would, so the guitar
           // does not turn into a bare single-note instrument.
-          const capo = keyAt(bar) - 60, grip = grips[root];
+          const capo = capoAt(bar), grip = gripTable()[root];
           const thumb = (beat, string, level) => events.push({ step: bar * 8 + beat, string,
             note: tuning[string] + grip[string] + capo, level: level * (.95 + .08 * rand()), delay: .004 * rand(), len: 3 });
           thumb(0, 'D', .46);
@@ -594,7 +643,7 @@ function articulateGuitar(events) {
     const choices = playable.filter(s => s.layer===firmest);
     // A melody note (no fixed string) is played low on the neck, as a guitarist would,
     // instead of high up on a middle string.
-    const fret = s => event.note - tuning[s.string] - (keyAt(Math.floor(event.step/8)) - 60);
+    const fret = s => event.note - tuning[s.string] - capoAt(Math.floor(event.step/8));
     const score = s => Math.abs(s.midi-event.note)
       + (event.string ? 0 : Math.max(0, fret(s) - 5))
       + (previous.get(event.note)===s.string ? 2 : 0)
@@ -609,7 +658,7 @@ function articulateGuitar(events) {
     let boundary = Math.floor(event.step/8)+1;
     while(boundary<bars) {
       const sameChord = chord(boundary)===chord(boundary-1) && keyAt(boundary)===keyAt(boundary-1);
-      const heldFret = event.string && grips[chord(boundary)][event.string] === event.note-tuning[event.string]-(keyAt(boundary)-60);
+      const heldFret = event.string && gripTable()[chord(boundary)][event.string] === event.note-tuning[event.string]-capoAt(boundary);
       if (!sameChord && !heldFret) break;
       boundary++;
     }
@@ -706,7 +755,7 @@ function onset(event) {
   const beat = event.step;
   let feel = 0;
   if (song.genre === 'Lo-fi' && beat % 2) feel = song.step * .12;
-  if (song.genre === 'Akustik' && song.mood === 'Tenang') {
+  if (song.genre === 'Akustik' && (song.mood === 'Tenang' || song.mood === 'Melankolis')) {
     const phase = beat % 32 / 32;
     feel = song.step * (.09 * Math.sin(2*Math.PI*phase) + (beat % 2 ? .045 : 0));
   }
@@ -798,6 +847,8 @@ function newSong({genre,mood,duration,names,seed,source='kit',onlyKit=null,piano
     // Each instrument starts with the style's pattern; the listener can change any of them.
     song.parts={Gitar:song.style.guitar, Piano:song.style.piano, Drum:song.style.drum, Bass:song.style.bass ?? 'tahan', ...force.parts};
     song.ritard=force.ritard ?? r2()<.5;
+    // Minor keys chosen so the A-minor guitar shapes need a capo of 0 to 5.
+    if (song.minor) song.key=pick2([57,59,60,62]);
     if (force.key) song.key=force.key;
   }
   const raw=song.duration/(8*song.step);
