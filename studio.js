@@ -124,6 +124,40 @@ const kits = [
     [3,0,2,8],[3,2,2,6],[3,4,4,4]] }
 ];
 
+// Song characters. Each seed picks one, so two songs differ in far more than the
+// tune: melody rhythm, guitar and piano accompaniment, drums and tempo.
+//   feel: 'asli' as written, 'panjang' only the strong-beat notes held long,
+//         'rapat' long notes split with a step to the next note.
+const styles = [
+  { name:'Santai',     feel:'panjang', bpm:[62,68], guitar:'petik',    piano:'blok',  drum:'tipis' },
+  { name:'Mengalir',   feel:'rapat',   bpm:[74,80], guitar:'petik',    piano:'pecah', drum:'lembut' },
+  { name:'Jalan pagi', feel:'asli',    bpm:[90,98], guitar:'genjreng', piano:'pecah', drum:'jalan' },
+  { name:'Teduh',      feel:'panjang', bpm:[70,76], guitar:'genjreng', piano:'blok',  drum:'lembut' },
+  { name:'Ringan',     feel:'rapat',   bpm:[84,90], guitar:'genjreng', piano:'blok',  drum:'jalan' },
+  { name:'Sederhana',  feel:'asli',    bpm:[74,82], guitar:'petik',    piano:'blok',  drum:'lembut' }
+];
+function applyFeel(notes, feel) {
+  if (feel === 'panjang') {
+    // Strong-beat notes are always chord tones, so keeping only them stays in tune.
+    const kept = notes.filter(n => n[0] % 4 === 0);
+    return kept.map((n, i) => [n[0], (kept[i + 1]?.[0] ?? 8) - n[0], n[2]]);
+  }
+  if (feel === 'rapat') {
+    const out = [];
+    notes.forEach(([onset, len, degree], i) => {
+      const next = notes[i + 1]?.[2] ?? degree;
+      // Step toward the next note on the weak beat; same note next means step up and back.
+      const step = next > degree ? 1 : next < degree ? -1 : 1;
+      if (len === 4 || len === 6) {
+        out.push([onset, 2, degree], [onset + 2, 2, degree + step]);
+        if (len === 6) out.push([onset + 4, 2, degree]);
+      } else out.push([onset, len, degree]);
+    });
+    return out;
+  }
+  return notes;
+}
+
 // Song plan shared by every instrument: chord per bar and one melody line.
 // Built from the kits above; depends only on the seed, never on the instruments.
 function planSong(bars) {
@@ -146,15 +180,18 @@ function planSong(bars) {
     const kit = order[phrase];
     let root = kit.chords[pos];
     let notes = kit.melody.filter(n => n[0] === pos).map(([, onset, len, degree]) => [onset, len, degree]);
-    if (last && pos === 2) {
+    if (last && pos === 2 && song.ending === 'kadens') {
       // Final cadence: V for one bar, then home on I.
       root = 4;
       notes = [[0,2,4],[2,2,6],[4,4,8]];
     }
     if (last && pos === 3) {
+      // 'kit' ending keeps the kit's own third bar and lands on the nearest tonic.
+      const before = melody[bar - 1]?.at(-1)?.[2] ?? 7;
       root = 0;
-      notes = [[0,8,7]];
+      notes = [[0,8,song.ending === 'kit' && before < 4 ? 0 : 7]];
     }
+    if (!(last && pos >= 2)) notes = applyFeel(notes, song.style.feel);
     harmony.push({ root, phrase, pos, lift: kit.kind === 'b' || phrase % 2 === 1,
       cadence: last && pos === 2, final: bar === bars - 1 });
     melody.push(notes);
@@ -237,11 +274,33 @@ function fingerpick(events, bar, root, final, lift, quiet, turn, noBass) {
   }
 }
 
+// Soft strummed guitar: whole chord, down strokes low to high, light up strokes on top.
+function strum(events, bar, root, final, noBass) {
+  const grip = grips[root];
+  const capo = song.key - 60;
+  let strings = Object.keys(grip);
+  if (noBass) strings = strings.slice(1);
+  const hit = (step, up, level) => {
+    const set = up ? strings.slice(-3).reverse() : strings;
+    set.forEach((string, i) => events.push({ step: bar * 8 + step, string,
+      note: tuning[string] + grip[string] + capo, level: level * (.95 + .08 * rand()),
+      delay: i * (up ? .011 : .016) + .004 * rand(), len: 3 }));
+  };
+  if (final) { hit(0, false, strumLevel * 1.05); return; }
+  hit(0, false, strumLevel * 1.05);
+  hit(3, true, strumLevel * .8);
+  hit(4, false, strumLevel);
+  hit(6, false, strumLevel * .9);
+  hit(7, true, strumLevel * .75);
+}
+
 // Mix balance measured per bar (RMS): the tune must stay loudest, drums sit lowest.
 // Without these the drums buried the guitar melody once they came in.
 const trackTrim = { Bass:6, Drum:.45 };
 const gitarMelodyBoost = 6;
 const guitarPeak = .13;
+const strumLevel = .3;
+const arpLevel = .17;
 function arrange(name, variant = 0) {
   rand = rng(song.seed ^ hashName(name) ^ Math.imul(variant + 1, 2654435761));
   const bars = song.harmony.length;
@@ -262,7 +321,12 @@ function arrange(name, variant = 0) {
     };
     if (name === 'Piano') {
       if (role.melody === 'Piano') playMelody(0, .40);
-      if (role.chords === 'Piano') {
+      if (role.chords === 'Piano' && song.style.piano === 'pecah') {
+        // Broken chord in eighths; the pedal keeps it ringing as one wash.
+        const shape = final ? [0,4,7,9] : [0,4,7,9,7,4,7,4];
+        const soft = role.melody === 'Piano' ? .75 : 1;
+        shape.forEach((x, i) => add(i, pitch(root + x) - 12, final ? 7.5 : 1, arpLevel * soft * (i % 4 === 0 ? 1.15 : 1), .01));
+      } else if (role.chords === 'Piano') {
         const soft = role.melody === 'Piano' ? 1 : .85;
         if (!role.bass) {
           // No bass yet: the left hand carries the root itself.
@@ -279,10 +343,20 @@ function arrange(name, variant = 0) {
       if (role.melody === 'Gitar') playMelody(0, .63, gitarMelodyBoost);
       if (role.chords === 'Gitar') {
         const quiet = role.melody !== 'Gitar' || alone;
-        fingerpick(events, bar, root, final, lift, quiet, turn, role.bass);
+        if (song.style.guitar === 'genjreng') strum(events, bar, root, final, role.bass);
+        else fingerpick(events, bar, root, final, lift, quiet, turn, role.bass);
       }
     } else if (name === 'Bass' && role.bass) {
       add(0, pitch(root) - 24, final ? 7.5 : 7.6, final ? .30 : .32, .01);
+    } else if (name === 'Drum' && role.drums && song.style.drum === 'tipis') {
+      add(0, 'kick', .65, final ? .26 : .3);
+      if (!final && !cadence) add(4, 'hat', .22, .1);
+    } else if (name === 'Drum' && role.drums && song.style.drum === 'jalan') {
+      add(0, 'kick', .65, final ? .30 : .36);
+      if (final) continue;
+      for (let s = 1; s < 8; s++) add(s, 'hat', .2, s % 2 ? .06 : .08);
+      add(4, 'kick', .5, .22);
+      if (!cadence) { add(2, 'rim', .3, .12); add(6, 'rim', .3, .11); }
     } else if (name === 'Drum' && role.drums) {
       add(0, 'kick', .65, final ? .30 : .36);
       if (final) continue;
@@ -443,7 +517,7 @@ function voice(track,event,when,audio=ctx,remaining=total()-(when-start)) {
 function clock(t) {return Math.floor(t/60)+':'+String(Math.floor(t%60)).padStart(2,'0')}
 // Extra seconds after the last beat so the final chord can fade out naturally.
 const tail = 3;
-const total = () => song.duration + tail;
+const total = () => song.duration + tail + (song.ritard ? song.step * 3 : 0);
 function display(t) {el('time').textContent=clock(t)+' / '+clock(total())}
 function halt(offset=0) {
   clearInterval(timer);
@@ -462,7 +536,9 @@ function onset(event) {
     const phase = beat % 32 / 32;
     feel = song.step * (.09 * Math.sin(2*Math.PI*phase) + (beat % 2 ? .045 : 0));
   }
-  return beat * song.step + feel + event.delay;
+  // Optional slowing down over the last two bars (ritardando).
+  const slow = song.ritard ? Math.max(0, beat - (song.bars - 2) * 8) : 0;
+  return beat * song.step + feel + event.delay + song.step * .35 * slow * slow / 32;
 }
 
 function scheduleTrack(track, offset) {
@@ -489,7 +565,7 @@ function play() {
 }
 // Build the song for the chosen settings. Akustik · Tenang is fully seeded:
 // the same seed gives the same chords and melody for any set of instruments.
-function newSong({genre,mood,duration,names,seed,source='kit',onlyKit=null,pianoMelody=false}) {
+function newSong({genre,mood,duration,names,seed,source='kit',onlyKit=null,pianoMelody=false,force={}}) {
   const bpm=({Tenang:78,Ceria:112,Melankolis:68})[mood]+({'Lo-fi':-6,Akustik:0,Pop:10})[genre];
   const r=rng(seed), choose=list=>list[Math.floor(r()*list.length)];
   song={genre,mood,seed,duration,source,onlyKit,pianoMelody,step:30/bpm,minor:mood==='Melankolis',
@@ -505,9 +581,22 @@ function newSong({genre,mood,duration,names,seed,source='kit',onlyKit=null,piano
     return song;
   }
   const acoustic=genre==='Akustik' && mood==='Tenang';
+  if (acoustic) {
+    // Character of this song; separate random stream so kits and key stay as before.
+    const r2=rng(seed^0x51ed), pick2=list=>list[Math.floor(r2()*list.length)];
+    song.style=styles.find(s=>s.name===force.style) ?? pick2(styles);
+    const [lo,hi]=song.style.bpm;
+    song.step=30/(lo+r2()*(hi-lo));
+    song.ending=force.ending ?? pick2(['kadens','kit']);
+    song.ritard=force.ritard ?? r2()<.5;
+    if (force.key) song.key=force.key;
+  }
   const raw=song.duration/(8*song.step);
   const bars=acoustic ? Math.max(4,Math.round(raw/4)*4) : Math.max(2,Math.round(raw));
-  song.step=song.duration/(8*bars);
+  // Kit songs keep the style's tempo and let the length move a few seconds instead.
+  if (acoustic) song.duration=8*bars*song.step;
+  else song.step=song.duration/(8*bars);
+  song.bars=bars;
   if (acoustic) {
     Object.assign(song,planSong(bars));
     song.variants={};
@@ -517,7 +606,7 @@ function newSong({genre,mood,duration,names,seed,source='kit',onlyKit=null,piano
 }
 let versions=[];
 function describe(s) {
-  const what = s.chorale ? 'Korale Bach #'+s.chorale.id : s.kitNames ? 'Kit '+s.kitNames.join(' + ') : s.genre+' · '+s.mood;
+  const what = s.chorale ? 'Korale Bach #'+s.chorale.id : s.kitNames ? 'Gaya '+s.style.name+' · Kit '+s.kitNames.join(' + ') : s.genre+' · '+s.mood;
   return what+' · '+Math.round(30/s.step)+' BPM · seed '+s.seed;
 }
 function showVersion(i) {

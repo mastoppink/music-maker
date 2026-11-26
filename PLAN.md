@@ -17,6 +17,10 @@ Generator musik instrumental untuk dipakai sendiri, dan hasil musiknya bisa diju
 - **A/B**: setiap "Buat musik" menghasilkan dua versi (seed berurutan). Seed tampil di pesan status.
 - **Sampel**: Meta Piano (4 lapisan dinamika), gitar nilon Meta, kontrabas pizzicato VSCO 2 CE, kick lama, snare lembut dan shaker VSCO. Semuanya CC0, lihat `samples/RECORDINGS.txt`.
 
+## Gaya lagu (`styles`)
+
+Setiap seed memilih satu gaya: Santai, Mengalir, Jalan pagi, Teduh, Ringan, Sederhana. Gaya menentukan irama melodi (`applyFeel`: asli / panjang / rapat), iringan gitar (petik / genjreng), iringan piano (blok / pecah), pola drum (lembut / tipis / jalan) dan rentang tempo. Penutup dipilih terpisah: kadens V–I atau bar ketiga kit lalu tonika, dengan atau tanpa melambat (ritardando). Tempo gaya dipertahankan; panjang lagu yang menyesuaikan (± beberapa detik). Uji otomatis: 600 lagu, 0 pelanggaran aturan nada akor.
+
 ## Riwayat yang sudah ditolak lewat dengar
 
 - Nada antar bass, dan bass yang masuk di ketukan pertama, pada etude piano lama.
@@ -24,7 +28,8 @@ Generator musik instrumental untuk dipakai sendiri, dan hasil musiknya bisa diju
 
 ## Berikutnya
 
-1. Pengguna sudah memilih Kit orisinal daripada Klasik. Sekarang menyaring 12 kit lewat halaman A/B (12 pilihan, dua putaran). Kit dengan 0 kemenangan dibuang. `newSong({onlyKit})` memutar satu kit saja untuk audisi.
+1. (Dibatalkan) Pemilihan 12 kit lewat A/B: pengguna mendengar semuanya mirip, karena hanya melodi yang berbeda. Diganti gaya lagu (lihat Gaya).
+   Catatan lama: pengguna sudah memilih Kit orisinal daripada Klasik. Sekarang menyaring 12 kit lewat halaman A/B (12 pilihan, dua putaran). Kit dengan 0 kemenangan dibuang. `newSong({onlyKit})` memutar satu kit saja untuk audisi.
 2. Tambah kit baru untuk mood lain (Ceria, Melankolis) dengan format yang sama.
 3. Ekspor MIDI per track, supaya hasil bisa dipoles di DAW.
 4. Simpan dan buka proyek (seed, sumber, instrumen, volume).
