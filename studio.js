@@ -22,6 +22,12 @@ async function loadBank(name) {
     return {string:parts[0],layer:Number(drum?parts[1]:parts[2])||1,key:drum?parts[0]:key,
       midi:drum?null:Number(parts[1]),buffer:await ctx.decodeAudioData(bytes.buffer)};
   }));
+  // Remember each recording's peak so a firm pluck is not also louder than a soft one.
+  for (const s of bank[name]) {
+    let peak=0;
+    for (let c=0;c<s.buffer.numberOfChannels;c++) for (const v of s.buffer.getChannelData(c)) peak=Math.max(peak,Math.abs(v));
+    s.peak=peak||1;
+  }
 }
 const tuning = { LowE:40, A:45, D:50, G:55, B:59, HighE:64 };
 const grips = {
@@ -234,6 +240,7 @@ function fingerpick(events, bar, root, final, lift, quiet, turn, noBass) {
 // Without these the drums buried the guitar melody once they came in.
 const trackTrim = { Bass:6, Drum:.45 };
 const gitarMelodyBoost = 6;
+const guitarPeak = .13;
 function arrange(name, variant = 0) {
   rand = rng(song.seed ^ hashName(name) ^ Math.imul(variant + 1, 2654435761));
   const bars = song.harmony.length;
@@ -335,8 +342,12 @@ function articulateGuitar(events) {
   }
   for (const event of events.slice().sort((a,b)=>onset(a)-onset(b))) {
     const at = onset(event);
-    const layer = event.level < .56 ? 1 : event.level < .69 ? 2 : 3;
-    const choices = samples.filter(s => s.layer===layer && tuning[s.string]<=event.note && (!event.string || s.string===event.string));
+    // Firm plucks only: the softest recordings sounded like a weak fretting hand.
+    const layer = event.level < .55 ? 2 : 3;
+    const playable = samples.filter(s => tuning[s.string]<=event.note && (!event.string || s.string===event.string));
+    // Low strings were only recorded soft and medium, so take the firmest they have.
+    const firmest = Math.min(layer, ...playable.map(s=>s.layer).filter((v,i,a)=>a.indexOf(v)===i).sort().slice(-1));
+    const choices = playable.filter(s => s.layer===firmest);
     const score = s => Math.abs(s.midi-event.note)
       + (previous.get(event.note)===s.string ? 2 : 0)
       + (at-(ringing.get(s.string)?.at ?? -10)<.10 ? 12 : 0);
@@ -401,7 +412,8 @@ function voice(track,event,when,audio=ctx,remaining=song.duration-(when-start)) 
   else source.connect(tone).connect(gain);
   gain.connect(track.bus);
   // Recorded layers already carry most of the loudness change, so scale gain gently.
-  const shaped = track.name==='Gitar' ? event.level : Math.sqrt(event.level*.4);
+  // Guitar loudness follows the played level, not the recording's own volume.
+  const shaped = track.name==='Gitar' ? event.level * guitarPeak / sample.peak : Math.sqrt(event.level*.4);
   const peak = ({ Piano:.55, Gitar:.59, Bass:.68, Drum:.62 })[track.name] * shaped
     * (trackTrim[track.name] ?? 1) * (event.boost ?? 1);
   gain.gain.setValueAtTime(peak,when);

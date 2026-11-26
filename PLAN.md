@@ -11,6 +11,7 @@ Generator musik instrumental untuk dipakai sendiri, dan hasil musiknya bisa diju
   - *Klasik (Bach)*: 24 korale empat suara bernada mayor di `classics.js`, diambil dari JSB Chorales dataset. Komposisinya bebas hak cipta. `arrangeChorale` membagi suara: sopran untuk melodi, alto dan tenor untuk iringan, bas untuk bass.
 - **Peran**: bass memegang nada dasar. Piano dan gitar bergantian membawa melodi per frasa. Bass dan drum masuk setelah frasa pertama.
 - **Keseimbangan volume** (`trackTrim`, `gitarMelodyBoost`): diukur per birama. Sebelumnya drum menenggelamkan melodi gitar saat masuk (pengguna: "semuanya rusak saat drum masuk"). Sekarang melodi paling keras, drum paling pelan.
+- **Petikan gitar**: dulu gitar hampir selalu memakai rekaman petikan paling lembut (pengguna: "seperti gripnya kurang kuat"). Sekarang hanya lapisan sedang dan kuat, dan volumenya dinormalkan per rekaman (`guitarPeak`). Senar LowE/A/D hanya punya lapisan 1–2, jadi diambil yang terkuat.
 - **A/B**: setiap "Buat musik" menghasilkan dua versi (seed berurutan). Seed tampil di pesan status.
 - **Sampel**: Meta Piano (4 lapisan dinamika), gitar nilon Meta, kontrabas pizzicato VSCO 2 CE, kick lama, snare lembut dan shaker VSCO. Semuanya CC0, lihat `samples/RECORDINGS.txt`.
 
