@@ -447,7 +447,8 @@ function strum(events, bar, root, final, noBass, v = 0) {
 // Mix balance measured per bar (RMS): the tune must stay loudest, drums sit lowest.
 // Without these the drums buried the guitar melody once they came in.
 const trackTrim = { Bass:6, Drum:.45 };
-const gitarMelodyBoost = 4.5;
+const gitarMelodyBoost = 3.8;
+const pianoUnderGuitar = 1.8;
 const guitarPeak = .13;
 const strumLevel = .3;
 // Drum balance after levelling the recordings, in dB (common mixing proportions:
@@ -483,6 +484,7 @@ function arrange(name, variant = 0) {
       }
     };
     if (name === 'Piano') {
+      const first = events.length;
       if (role.melody === 'Piano') {
         // Up an octave on marked repeats, if the whole phrase stays below C7.
         const phraseBars = song.melody.slice(bar - bar % 4, bar - bar % 4 + 4).flat();
@@ -530,6 +532,9 @@ function arrange(name, variant = 0) {
         }
         if (role.melody !== 'Piano' && !final) add(4, pitch(root + 7) - 12, 3.5, .17, .02);
       }
+      // While the guitar carries the tune, the piano accompaniment was 12-17 dB under it
+      // (against 11 dB the other way round), so the guitar seemed to play alone. Lift it.
+      if (role.melody === 'Gitar') for (let i = first; i < events.length; i++) events[i].boost = pianoUnderGuitar;
     } else if (name === 'Gitar') {
       if (role.melody === 'Gitar') {
         playMelody(0, .5, gitarMelodyBoost);
