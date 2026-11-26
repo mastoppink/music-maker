@@ -379,7 +379,7 @@ const partOptions = {
   Gitar: { petik:'Petik', genjreng:'Genjreng' },
   Piano: { blok:'Akor', pecah:'Akor dipecah', jazz:'Akor jazz', pulsa:'Akor berdenyut' },
   Bass:  { tahan:'Panjang', dua:'Dua nada', delapan:'Berdenyut', jalan:'Berjalan (jazz)' },
-  Drum:  { lembut:'Lembut', tipis:'Tipis', jalan:'Berjalan', lofi:'Lo-fi', pop:'Pop', balada:'Balada', jazz:'Jazz (ride)' },
+  Drum:  { lembut:'Lembut', tipis:'Tipis', jalan:'Berjalan', lofi:'Lo-fi', pop:'Pop', balada:'Balada', jazz:'Jazz (hi-hat)' },
   String: { panjang:'Akor panjang', tinggi:'Nada tinggi' }
 };
 const variationCount = { Gitar:{ petik:3, genjreng:2 }, Piano:{ blok:3, pecah:3, jazz:2, pulsa:2 }, Bass:{ tahan:2, dua:2, delapan:2, jalan:2 }, Drum:{ lembut:2, tipis:2, jalan:2, lofi:2, pop:2, balada:2, jazz:2 }, String:{ panjang:2, tinggi:1 } };
@@ -452,7 +452,7 @@ const guitarPeak = .13;
 const strumLevel = .3;
 // Drum balance after levelling the recordings, in dB (common mixing proportions:
 // snare a little under the kick, cymbals and shaker further back). Tuned by measuring peaks.
-const drumBalance = { kick:0, snare:6, rim:3, hat:5, ride:-4 };
+const drumBalance = { kick:0, snare:6, rim:3, hat:5, hhc:2, hhl:3, hhp:0 };
 const stringPeak = 1.4;
 const arpLevel = .17;
 function arrange(name, variant = 0) {
@@ -589,10 +589,13 @@ function arrange(name, variant = 0) {
       // Variation: a short octave note leading into the next bar.
       if (v === 1 && !final) add(6, pitch(root) - 12, 1.6, .26, .01);
     } else if (name === 'Drum' && role.drums && part === 'jazz') {
-      // Swing ride: ding, ding-ga, ding, ding-ga (the "ga" lands late because of the swing),
-      // a feathered kick, and in variation 2 a soft cross-stick on beat four.
-      if (final) { add(0, 'ride', 1, .16); add(0, 'kick', .6, .22); continue; }
-      for (const [st, level] of [[0,.12],[2,.15],[3,.09],[4,.12],[6,.15],[7,.09]]) add(st, 'ride', 1, level);
+      // Swing time on a drum-kit hi-hat played with a stick: a washy half-open hit on one
+      // and three, a tight accent on two and four, soft taps on the swung off-beats.
+      // A half-open hit is cut off when the hats close again, as on a real hi-hat.
+      const loose = (st, level) => { add(st, 'hhl', 1, level); events[events.length - 1].ring = song.step * 1.9; };
+      if (final) { loose(0, .13); events[events.length - 1].ring = null; add(0, 'kick', .6, .22); continue; }
+      loose(0, .12); loose(4, .11);
+      for (const [st, level] of [[2,.17],[6,.17],[3,.07],[7,.07]]) add(st, 'hhc', 1, level);
       add(0, 'kick', .5, .16); add(4, 'kick', .5, .13);
       if (v === 1 && !cadence) add(6, 'rim', .3, .1);
     } else if (name === 'Drum' && role.drums && part === 'pop') {
@@ -737,10 +740,13 @@ function pattern(name) {
 // Choose the recorded dynamic layer from how hard the note is played, then the
 // nearest pitch, then rotate between alternate takes so repeats never sound identical.
 const layerSteps = { Piano:[.2,.3,.42], Bass:[.31], Drum:[.15,.25] };
+// Closed hi-hat was recorded at four strengths, so it gets its own steps.
+const drumSteps = { hhc:[.08,.12,.16] };
 function pickSample(name,samples,event) {
   const pool = name==='Drum' ? samples.filter(s=>s.key===event.note) : samples;
   const maxLayer = Math.max(...pool.map(s=>s.layer));
-  const wanted = Math.min(maxLayer,1+(layerSteps[name]??[]).filter(t=>event.level>=t).length);
+  const steps = (name==='Drum' && drumSteps[event.note]) || layerSteps[name] || [];
+  const wanted = Math.min(maxLayer,1+steps.filter(t=>event.level>=t).length);
   // If that dynamic was not recorded, use the closest one (the softer on a tie), never a
   // rotation through all of them: that used to drop the pop snare to a whisper.
   const layers = [...new Set(pool.map(s=>s.layer))];
@@ -973,7 +979,7 @@ async function songFromProject(p) {
 // ---- MIDI export (Standard MIDI File, one track per instrument) ----
 // Timing follows the song as played (swing, slowing down), at 480 ticks per quarter note.
 const midiSetup = { Piano:{ channel:0, program:0 }, Gitar:{ channel:1, program:24 }, Bass:{ channel:2, program:32 }, Drum:{ channel:9 }, String:{ channel:3, program:48 } };
-const midiDrums = { kick:36, snare:38, rim:37, hat:82, ride:51 };
+const midiDrums = { kick:36, snare:38, rim:37, hat:82, hhc:42, hhl:46, hhp:44 };
 function midiFile() {
   const ppq = 480, tick = seconds => Math.max(0, Math.round(seconds / song.step * ppq / 2));
   const varLen = n => { const out = [n & 127]; while ((n >>= 7)) out.unshift((n & 127) | 128); return out; };
