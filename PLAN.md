@@ -57,7 +57,7 @@ Cara kerja dengan pengguna: pengguna tidak membaca not dan tidak menilai nada. S
 - **String** (instrumen baru, tidak dicentang secara bawaan): seksi cello/viola/biola VSCO 2 CE, 16 rekaman, nada diukur per file (`stringCents`). Pola `panjang` (akor ditahan mengikuti harmoni, disambung bila akor sama; energi 0: cello+viola pelan, energi 2: biola tinggi ikut) dan `tinggi`. Serangan lembut 0,4 detik, lepas 0,9 detik. Di Klasik memegang alto dan tenor. Level sekitar 7–8 dB di bawah melodi.
 - Uji: 162 lagu semua genre dan mood dengan String, 113.033 nada iringan + 3.146 nada pengantar walking bass, 0 di luar akor.
 - **Perbaikan drum** (pengguna: cymbal jazz "dipukul pelan-pelan … ragu dia pas"): ukuran puncak menunjukkan snare, hi-hat, rim, dan ride 25–35 dB di bawah kick di semua genre, karena kick direkam hampir full scale sedangkan rekaman VSCO jauh lebih lirih, dan pilihan lapisan drum dulu bergiliran ke semua lapisan bila lapisan yang diminta tidak ada. Sekarang: lapisan terdekat (`pickSample`), puncak tiap bunyi disetarakan (`sample.lift`), lalu `drumBalance` (snare −6, rim −8..−11, ride −10, hi-hat −12..−17 dB dari kick). Ride dibuat ulang dengan dengung alami (−40 dB setelah 1,1–1,3 detik, dulu 0,4–0,5). Volume drum keseluruhan hampir sama (kick dominan). Uji buta: Lagu 1 (Jazz) B = baru, Lagu 2 (Pop) A = baru.
-- **Jazz tanpa cymbal orkestra** (pengguna: "simbalnya jelas tidak pas"): cymbal gantung VSCO dibuang. Penggantinya hi-hat drum set VCSL (CC0): `hhl` setengah terbuka di ketukan 1 dan 3 (dipotong saat hi-hat menutup), `hhc` tertutup ditekan di 2 dan 4, ketukan ayun pelan; lapisan sendiri (`drumSteps`); sekitar 10–12 dB di bawah kick. VCSL juga tidak punya ride. Menunggu pilihan: hi-hat atau jazz tanpa drum.
+- **Jazz tanpa cymbal orkestra** (pengguna: "simbalnya jelas tidak pas"): cymbal gantung VSCO dibuang. Penggantinya hi-hat drum set VCSL (CC0): `hhl` setengah terbuka di ketukan 1 dan 3 (dipotong saat hi-hat menutup), `hhc` tertutup ditekan di 2 dan 4, ketukan ayun pelan; lapisan sendiri (`drumSteps`); VCSL juga tidak punya ride. Pengguna: "hi-hat sudah pas suaranya, tetapi volumenya terlalu dominan"; dari tiga takaran dipilih turun 8 dB (`drumBalance` hhc −6, hhl −5), sekitar 18–20 dB di bawah kick.
 - **Rangkaian** (CLI `rangkaian`): lagu berseed berurutan, di-master satu per satu, disambung dengan tumpang-tindih `--jeda` (bawaan 2 detik), ditulis langsung ke disk. Juga menyimpan daftar bab YouTube (.txt) dan .json. Hanya diuji singkat (1 menit); pengguna minta rangkaian 60 menit tidak dicoba dulu.
 - **Mix dan mastering**:
   - Gema ruangan buatan (`roomImpulse`, sekitar 2 detik, ber-seed sehingga hasilnya selalu sama), dikirim per instrumen (`placement.room`).
@@ -93,6 +93,5 @@ Cara kerja dengan pengguna: pengguna tidak membaca not dan tidak menilai nada. S
 ## Berikutnya (urut prioritas)
 
 1. **Dengar Jazz dan String** (uji buta String: Lagu 1 A = dengan string, Lagu 2 B = dengan string), plus Pop dan Melankolis yang belum dinilai.
-2. Jazz: pengguna memilih hi-hat atau tanpa drum. Ride CC0 sungguhan belum ditemukan (VSCO 2 CE dan VCSL tidak punya).
-3. **Coba rangkaian 60 menit** di komputer pengguna.
-4. Ide: lebih banyak kit melodi; gambar sampul otomatis untuk video.
+2. **Coba rangkaian 60 menit** di komputer pengguna.
+3. Ide: lebih banyak kit melodi; gambar sampul otomatis untuk video.

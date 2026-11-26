@@ -452,7 +452,7 @@ const guitarPeak = .13;
 const strumLevel = .3;
 // Drum balance after levelling the recordings, in dB (common mixing proportions:
 // snare a little under the kick, cymbals and shaker further back). Tuned by measuring peaks.
-const drumBalance = { kick:0, snare:6, rim:3, hat:5, hhc:2, hhl:3, hhp:0 };
+const drumBalance = { kick:0, snare:6, rim:3, hat:5, hhc:-6, hhl:-5, hhp:0 };
 const stringPeak = 1.4;
 const arpLevel = .17;
 function arrange(name, variant = 0) {
