@@ -16,7 +16,7 @@ Pemakaian:
   node cli/music-maker.js bantuan         Tampilkan teks ini
 
 Opsi untuk "buat":
-  --mood <Tenang|Ceria|Melankolis>        Bawaan: Tenang
+  --mood <Tenang|Ceria|Melankolis|Sedih>  Bawaan: Tenang
   --genre <Akustik|Lo-fi|Pop|Jazz|Bossa>  Bawaan: Akustik
   --sumber <kit|klasik>                   Kit orisinal atau Klasik (Bach). Bawaan: kit
   --durasi <detik>                        Misalnya 60, 180, 300. Bawaan: 60
@@ -101,7 +101,7 @@ function settingsFrom(opts) {
     ...(base.melodi_kit && opts.seed === undefined ? { melodi_kit: base.melodi_kit } : {}),
     ...(base.dinamika ? { dinamika: base.dinamika } : {})
   };
-  if (!['Tenang','Ceria','Melankolis'].includes(s.mood)) throw new Error('--mood harus Tenang, Ceria, atau Melankolis.');
+  if (!['Tenang','Ceria','Melankolis','Sedih'].includes(s.mood)) throw new Error('--mood harus Tenang, Ceria, Melankolis, atau Sedih.');
   if (!['Akustik','Lo-fi','Pop','Jazz','Bossa'].includes(s.genre)) throw new Error('--genre harus Akustik, Lo-fi, Pop, Jazz, atau Bossa.');
   if (!['kit','klasik'].includes(s.sumber)) throw new Error('--sumber harus kit atau klasik.');
   if (!['gantian','piano'].includes(s.melodi)) throw new Error('--melodi harus gantian atau piano.');

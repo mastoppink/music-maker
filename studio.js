@@ -269,6 +269,38 @@ const kits = [
     [1,0,4,10],[1,4,4,7],
     [2,0,2,8],[2,2,2,6],[2,4,4,4],
     [3,0,6,6],[3,6,2,null]] },
+  // Sad kits (mood Sedih): falling lines, long notes, a breath at the end of a phrase, and
+  // phrases that come to rest low. Minor key, same chord-tone rules.
+  { name:'Pilu', kind:'a', minor:true, sad:true, chords:[0,5,3,4], melody:[
+    [0,0,4,4],[0,4,2,2],[0,6,2,1],
+    [1,0,4,0],[1,4,3,2],[1,7,1,1],
+    [2,0,2,5],[2,2,2,4],[2,4,4,3],
+    [3,0,6,1],[3,6,2,null]] },
+  { name:'Sendirian', kind:'a', minor:true, sad:true, chords:[0,3,0,4], melody:[
+    [0,0,6,7],[0,6,1,6],[0,7,1,5],
+    [1,0,4,3],[1,4,4,0],
+    [2,0,2,4],[2,2,2,3],[2,4,4,2],
+    [3,0,2,4],[3,2,2,1],[3,4,4,1]] },
+  { name:'Pamit', kind:'a', minor:true, sad:true, chords:[5,3,0,4], melody:[
+    [0,0,3,2],[0,3,1,1],[0,4,4,0],
+    [1,0,2,5],[1,2,2,4],[1,4,4,3],
+    [2,0,2,2],[2,2,2,1],[2,4,4,0],
+    [3,0,3,4],[3,3,1,2],[3,4,4,1]] },
+  { name:'Hujan Turun', kind:'a', minor:true, sad:true, chords:[0,4,5,4], melody:[
+    [0,0,2,9],[0,2,2,8],[0,4,4,7],
+    [1,0,2,6],[1,2,2,5],[1,4,4,4],
+    [2,0,2,5],[2,2,2,4],[2,4,4,2],
+    [3,0,6,1],[3,6,2,null]] },
+  { name:'Kenangan Lama', kind:'b', minor:true, sad:true, chords:[3,0,5,4], melody:[
+    [0,0,4,5],[0,4,4,7],
+    [1,0,4,4],[1,4,2,2],[1,6,2,4],
+    [2,0,4,7],[2,4,2,5],[2,6,2,4],
+    [3,0,4,6],[3,4,4,4]] },
+  { name:'Tanpa Kata', kind:'b', minor:true, sad:true, chords:[5,4,3,4], melody:[
+    [0,0,4,9],[0,4,4,7],
+    [1,0,4,8],[1,4,4,6],
+    [2,0,4,7],[2,4,2,5],[2,6,2,3],
+    [3,0,6,4],[3,6,2,null]] },
   // Jazz kits: syncopation (notes starting between beats and held over the next one),
   // rests (degree null) where a player would breathe, and running eighth notes.
   // Strong beats still hold chord tones; IV bars only use fa, la, do, which also belong
@@ -346,6 +378,12 @@ const styles = [
   { name:'Pantai Senja', genre:'Bossa', mood:'Tenang', weight:2, feel:'asli', bpm:[100,112], guitar:'bossa', piano:'jazz', drum:'bossa', bass:'bossa' },
   { name:'Pesisir',      genre:'Bossa', mood:'Ceria',  weight:1, feel:'asli', bpm:[118,130], guitar:'bossa', piano:'jazz', drum:'bossa', bass:'bossa' },
   { name:'Saudade',      genre:'Bossa', mood:'Melankolis', weight:1, feel:'panjang', bpm:[96,106], guitar:'bossa', piano:'jazz', drum:'bossa', bass:'bossa' },
+  // Sedih: sad tunes, very slow, sparse, quiet drums (none in Akustik), always slowing at the end.
+  { name:'Pilu',         genre:'Akustik', mood:'Sedih', weight:1, feel:'panjang', bpm:[50,56], guitar:'petik', piano:'blok', drum:'tanpa', bass:'tahan' },
+  { name:'Kamar Sepi',   genre:'Lo-fi',   mood:'Sedih', weight:1, feel:'panjang', bpm:[58,64], guitar:'petik', piano:'jazz', drum:'lofi', bass:'tahan' },
+  { name:'Air Mata',     genre:'Pop',     mood:'Sedih', weight:1, feel:'panjang', bpm:[54,60], guitar:'petik', piano:'pecah', drum:'balada', bass:'tahan' },
+  { name:'Malam Kelabu', genre:'Jazz',    mood:'Sedih', weight:1, feel:'panjang', bpm:[52,60], guitar:'petik', piano:'jazz', drum:'jazz', bass:'jalan' },
+  { name:'Perpisahan',   genre:'Bossa',   mood:'Sedih', weight:1, feel:'panjang', bpm:[84,92], guitar:'bossa', piano:'jazz', drum:'bossa', bass:'bossa' },
   // Melankolis: minor kits, slower, softer.
   { name:'Sendu',      genre:'Akustik', mood:'Melankolis', weight:2, feel:'panjang', bpm:[60,66], guitar:'petik', piano:'blok',  drum:'tipis' },
   { name:'Kenangan',   genre:'Akustik', mood:'Melankolis', weight:1, feel:'asli',    bpm:[68,74], guitar:'petik', piano:'pecah', drum:'lembut' },
@@ -446,7 +484,9 @@ function planSong(bars) {
   // Jazz songs draw from the jazz kits (syncopated, with rests), the others from the rest.
   // Bossa shares the jazz tunes (syncopated, with breaths), played with straight eighths.
   const jazzTunes = song.genre === 'Jazz' || song.genre === 'Bossa';
-  const pool = kits.filter(k => !!k.minor === !!song.minor && !!k.jazz === jazzTunes);
+  // Sedih uses its own sad tunes (jazz and bossa keep their jazz tunes); other moods leave them out.
+  const sadTunes = song.mood === 'Sedih' && !jazzTunes;
+  const pool = kits.filter(k => !!k.minor === !!song.minor && !!k.jazz === jazzTunes && !!k.sad === sadTunes);
   let main = solo ?? choose(pool.filter(k => k.kind === 'a'));
   let middle = solo ?? choose(pool.filter(k => k.kind === 'b'));
   // Second tunes for long songs (picked after the first two so short songs stay the same).
@@ -579,10 +619,10 @@ const partOptions = {
   Gitar: { petik:'Petik', genjreng:'Genjreng', bossa:'Bossa' },
   Piano: { blok:'Akor', pecah:'Akor dipecah', jazz:'Akor jazz', pulsa:'Akor berdenyut' },
   Bass:  { tahan:'Panjang', dua:'Dua nada', delapan:'Berdenyut', jalan:'Berjalan (jazz)', bossa:'Bossa' },
-  Drum:  { lembut:'Lembut', tipis:'Tipis', jalan:'Berjalan', lofi:'Lo-fi', pop:'Pop', balada:'Balada', jazz:'Jazz (hi-hat)', bossa:'Bossa' },
+  Drum:  { tanpa:'Tanpa drum', lembut:'Lembut', tipis:'Tipis', jalan:'Berjalan', lofi:'Lo-fi', pop:'Pop', balada:'Balada', jazz:'Jazz (hi-hat)', bossa:'Bossa' },
   String: { panjang:'Akor panjang', tinggi:'Nada tinggi' }
 };
-const variationCount = { Gitar:{ petik:3, genjreng:2, bossa:2 }, Piano:{ blok:3, pecah:3, jazz:2, pulsa:2 }, Bass:{ tahan:2, dua:2, delapan:2, jalan:2, bossa:1 }, Drum:{ lembut:2, tipis:2, jalan:2, lofi:2, pop:2, balada:2, jazz:2, bossa:2 }, String:{ panjang:2, tinggi:1 } };
+const variationCount = { Gitar:{ petik:3, genjreng:2, bossa:2 }, Piano:{ blok:3, pecah:3, jazz:2, pulsa:2 }, Bass:{ tahan:2, dua:2, delapan:2, jalan:2, bossa:1 }, Drum:{ tanpa:1, lembut:2, tipis:2, jalan:2, lofi:2, pop:2, balada:2, jazz:2, bossa:2 }, String:{ panjang:2, tinggi:1 } };
 
 function fingerpick(events, bar, root, final, lift, quiet, turn, noBass, v = 0) {
   const grip = gripTable()[root];
@@ -831,6 +871,8 @@ function arrange(name, variant = 0) {
       if (two) add(4, pitch(root + 4) - 24, v === 1 ? 1.8 : 3.6, .29, .01);
       // Variation: a short octave note leading into the next bar.
       if (v === 1 && !final) add(6, pitch(root) - 12, 1.6, .26, .01);
+    } else if (name === 'Drum' && part === 'tanpa') {
+      // No drums at all.
     } else if (name === 'Drum' && role.drums && part === 'bossa') {
       // Bossa: cross-stick on the two-bar bossa clave, soft shaker eighths, and a light kick
       // on one and three with pick-ups just before.
@@ -1026,6 +1068,8 @@ function shapeDynamics(name, events) {
 function pattern(name) {
   const events = compose(name);
   if (song.harmony) shapeDynamics(name, events);
+  // Sedih: drums about 3 dB softer than in the other moods.
+  if (name === 'Drum' && song.mood === 'Sedih' && song.harmony) for (const e of events) e.boost = (e.boost ?? 1) * .7;
   if (name === 'Piano' && song.harmony) {
     // Sustain pedal: each note keeps sounding until the chord changes at the bar line.
     for (const e of events) e.len = Math.max(e.len, Math.floor(e.step / 8) * 8 + 8 - e.step);
@@ -1126,6 +1170,11 @@ function onset(event) {
     const phase = beat % 32 / 32;
     feel = song.step * (.09 * Math.sin(2*Math.PI*phase) + (beat % 2 ? .045 : 0));
   }
+  // Sedih (Akustik, Pop): a wider, slower breath in the time, like a player lingering.
+  if ((song.genre === 'Akustik' || song.genre === 'Pop') && song.mood === 'Sedih') {
+    const phase = beat % 32 / 32;
+    feel = song.step * (.14 * Math.sin(2*Math.PI*phase) + (beat % 2 ? .05 : 0));
+  }
   // Optional slowing down over the last two bars (ritardando).
   const slow = song.ritard ? Math.max(0, beat - (song.bars - 2) * 8) : 0;
   return beat * song.step + feel + event.delay + song.step * .35 * slow * slow / 32;
@@ -1167,9 +1216,9 @@ function play() {
 // the same seed gives the same chords and melody for any set of instruments.
 function newSong({genre,mood,duration,names,seed,source='kit',onlyKit=null,pianoMelody=false,force={},vary={}}) {
   // force.kits: tune names saved in a project (main, middle, main2, middle2).
-  const bpm=({Tenang:78,Ceria:112,Melankolis:68})[mood]+({'Lo-fi':-6,Akustik:0,Pop:10})[genre];
+  const bpm=({Tenang:78,Ceria:112,Melankolis:68,Sedih:56})[mood]+({'Lo-fi':-6,Akustik:0,Pop:10})[genre];
   const r=rng(seed), choose=list=>list[Math.floor(r()*list.length)];
-  song={genre,mood,seed,duration,requested:duration,source,onlyKit,pianoMelody,vary,kitChoice:force.kits,dynamics:force.dynamics ?? dynamicsDefault,step:30/bpm,minor:mood==='Melankolis',
+  song={genre,mood,seed,duration,requested:duration,source,onlyKit,pianoMelody,vary,kitChoice:force.kits,dynamics:force.dynamics ?? dynamicsDefault,step:30/bpm,minor:mood==='Melankolis'||mood==='Sedih',
     key:choose([60,62,65,67]),chords:choose([[0,3,5,4],[0,5,3,4],[0,4,5,3]]),
     tracks:names.map(name=>({name,events:[],volume:.7,muted:false})),harmony:null,variants:{}};
   if (source==='klasik') {
@@ -1217,7 +1266,9 @@ function newSong({genre,mood,duration,names,seed,source='kit',onlyKit=null,piano
     song.ending=force.ending ?? pick2(['kadens','kit']);
     // Each instrument starts with the style's pattern; the listener can change any of them.
     song.parts={Gitar:song.style.guitar, Piano:song.style.piano, Drum:song.style.drum, Bass:song.style.bass ?? 'tahan', String:song.style.strings ?? 'panjang', ...force.parts};
-    song.ritard=force.ritard ?? r2()<.5;
+    // Sad songs always slow down at the end (the random draw is kept so other moods stay the same).
+    const slowDraw=r2()<.5;
+    song.ritard=force.ritard ?? (mood==='Sedih' || slowDraw);
     // Minor keys chosen so the A-minor guitar shapes need a capo of 0 to 5.
     if (song.minor) song.key=pick2([57,59,60,62]);
     if (force.key) song.key=force.key;

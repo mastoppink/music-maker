@@ -30,7 +30,7 @@ Piano, Gitar, Bass, dan Drum tercentang secara bawaan. **String** (biola, viola,
 
 | Pilihan | Nilai |
 |---|---|
-| Mood | Tenang, Ceria, Melankolis |
+| Mood | Tenang, Ceria, Melankolis, Sedih |
 | Genre | Akustik, Lo-fi, Pop, Jazz, Bossa |
 | Sumber | **Kit orisinal**: melodi tulisan tangan · **Klasik**: korale J.S. Bach (domain publik) |
 | Melodi | Gantian piano & gitar, atau Piano saja |
@@ -50,7 +50,7 @@ Gaya lagu, bentuk lagu, dan pola per instrumen berlaku untuk **Kit orisinal** di
 
 ### Mood
 
-**Tenang** dan **Ceria** memakai 20 melodi mayor tulisan tangan. **Melankolis** memakai 12 melodi minor. Jazz dan Bossa memakai 8 melodi jazz tersendiri. Setiap mood dan genre punya beberapa **gaya** (tempo, irama melodi, pola iringan), dan setiap lagu memilih satu gaya. Daftar lengkapnya bisa dilihat dengan `node cli/music-maker.js daftar`.
+**Tenang** dan **Ceria** memakai 20 melodi mayor tulisan tangan. **Melankolis** memakai 12 melodi minor. **Sedih** memakai 6 melodi minor khusus (garis turun, nada panjang, berakhir rendah) dengan tempo sangat pelan, drum paling lembut (Akustik tanpa drum), dan penutup yang selalu melambat. Jazz dan Bossa memakai 8 melodi jazz tersendiri (juga untuk mood Sedih). Setiap mood dan genre punya beberapa **gaya** (tempo, irama melodi, pola iringan), dan setiap lagu memilih satu gaya. Daftar lengkapnya bisa dilihat dengan `node cli/music-maker.js daftar`.
 
 ### Bentuk lagu
 
@@ -103,7 +103,7 @@ Rangkaian 60 menit butuh beberapa menit untuk dibuat, dan WAV-nya sekitar 600 MB
 
 | Opsi | Arti | Bawaan |
 |---|---|---|
-| `--mood` | Tenang, Ceria, Melankolis | Tenang |
+| `--mood` | Tenang, Ceria, Melankolis, Sedih | Tenang |
 | `--genre` | Akustik, Lo-fi, Pop, Jazz, Bossa | Akustik |
 | `--sumber` | `kit` atau `klasik` | kit |
 | `--durasi` | panjang lagu dalam detik (10–900) | 60 |
