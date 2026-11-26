@@ -139,15 +139,19 @@ const kits = [
 // weight: how often a style is picked. The listener liked Santai most and found
 // Jalan pagi least fitting for a calm song, so the fast styles moved to Ceria.
 const styles = [
-  { name:'Santai',     mood:'Tenang', weight:3, feel:'panjang', bpm:[62,68], guitar:'petik',    piano:'blok',  drum:'tipis' },
-  { name:'Mengalir',   mood:'Tenang', weight:1, feel:'rapat',   bpm:[74,80], guitar:'petik',    piano:'pecah', drum:'lembut' },
-  { name:'Teduh',      mood:'Tenang', weight:1, feel:'panjang', bpm:[70,76], guitar:'genjreng', piano:'blok',  drum:'lembut' },
-  { name:'Sederhana',  mood:'Tenang', weight:1, feel:'asli',    bpm:[74,82], guitar:'petik',    piano:'blok',  drum:'lembut' },
-  { name:'Jalan pagi', mood:'Ceria',  weight:1, feel:'asli',    bpm:[90,98], guitar:'genjreng', piano:'pecah', drum:'jalan' },
-  { name:'Ringan',     mood:'Ceria',  weight:1, feel:'rapat',   bpm:[84,90], guitar:'genjreng', piano:'blok',  drum:'jalan' }
+  { name:'Santai',     genre:'Akustik', mood:'Tenang', weight:3, feel:'panjang', bpm:[62,68], guitar:'petik',    piano:'blok',  drum:'tipis' },
+  { name:'Mengalir',   genre:'Akustik', mood:'Tenang', weight:1, feel:'rapat',   bpm:[74,80], guitar:'petik',    piano:'pecah', drum:'lembut' },
+  { name:'Teduh',      genre:'Akustik', mood:'Tenang', weight:1, feel:'panjang', bpm:[70,76], guitar:'genjreng', piano:'blok',  drum:'lembut' },
+  { name:'Sederhana',  genre:'Akustik', mood:'Tenang', weight:1, feel:'asli',    bpm:[74,82], guitar:'petik',    piano:'blok',  drum:'lembut' },
+  { name:'Jalan pagi', genre:'Akustik', mood:'Ceria',  weight:1, feel:'asli',    bpm:[90,98], guitar:'genjreng', piano:'pecah', drum:'jalan' },
+  { name:'Ringan',     genre:'Akustik', mood:'Ceria',  weight:1, feel:'rapat',   bpm:[84,90], guitar:'genjreng', piano:'blok',  drum:'jalan' },
+  // Lo-fi: swung eighths, jazz chords on piano, boom-bap drums, warm and slightly worn sound.
+  { name:'Belajar',    genre:'Lo-fi',   mood:'Tenang', weight:2, feel:'panjang', bpm:[72,78], guitar:'petik',    piano:'jazz',  drum:'lofi', bass:'dua' },
+  { name:'Malam',      genre:'Lo-fi',   mood:'Tenang', weight:1, feel:'asli',    bpm:[66,72], guitar:'petik',    piano:'jazz',  drum:'lofi', bass:'tahan' },
+  { name:'Kopi pagi',  genre:'Lo-fi',   mood:'Ceria',  weight:1, feel:'rapat',   bpm:[84,90], guitar:'genjreng', piano:'jazz',  drum:'lofi', bass:'dua' }
 ];
-function pickStyle(mood, r) {
-  const pool = styles.filter(s => s.mood === mood);
+function pickStyle(mood, genre, r) {
+  const pool = styles.filter(s => s.mood === mood && s.genre === genre);
   let x = r() * pool.reduce((sum, s) => sum + s.weight, 0);
   return pool.find(s => (x -= s.weight) < 0) ?? pool[0];
 }
@@ -303,11 +307,11 @@ function roles(bar) {
 // through the variations of the chosen pattern (variant number).
 const partOptions = {
   Gitar: { petik:'Petik', genjreng:'Genjreng' },
-  Piano: { blok:'Akor', pecah:'Akor dipecah' },
+  Piano: { blok:'Akor', pecah:'Akor dipecah', jazz:'Akor jazz' },
   Bass:  { tahan:'Panjang', dua:'Dua nada' },
-  Drum:  { lembut:'Lembut', tipis:'Tipis', jalan:'Berjalan' }
+  Drum:  { lembut:'Lembut', tipis:'Tipis', jalan:'Berjalan', lofi:'Lo-fi' }
 };
-const variationCount = { Gitar:{ petik:3, genjreng:2 }, Piano:{ blok:3, pecah:3 }, Bass:{ tahan:2, dua:2 }, Drum:{ lembut:2, tipis:2, jalan:2 } };
+const variationCount = { Gitar:{ petik:3, genjreng:2 }, Piano:{ blok:3, pecah:3, jazz:2 }, Bass:{ tahan:2, dua:2 }, Drum:{ lembut:2, tipis:2, jalan:2, lofi:2 } };
 
 function fingerpick(events, bar, root, final, lift, quiet, turn, noBass, v = 0) {
   const grip = grips[root];
@@ -410,7 +414,14 @@ function arrange(name, variant = 0) {
         const top = Math.max(...phraseBars.map(n => pitch(n[2])));
         playMelody(song.harmony[bar].high && top + 12 <= 88 ? 12 : 0, .40);
       }
-      if (role.chords === 'Piano' && part === 'pecah') {
+      if (role.chords === 'Piano' && part === 'jazz') {
+        // Seventh chords, lightly rolled. With a bass player the root is left out (3-5-7).
+        const soft = role.melody === 'Piano' ? .8 : 1;
+        const notes = role.bass ? [root + 2, root + 4, root + 6] : [root, root + 4, root + 6, root + 9];
+        const hits = final ? [[0,7.5,1]] : v === 0 ? [[0,3,1],[3,5,.8]] : [[0,2,1],[2,2,.7],[5,3,.85]];
+        for (const [step, len, level] of hits)
+          notes.forEach((x, i) => add(step, pitch(x) - 12, len, (i ? .16 : .2) * soft * level, .015 + i * .018));
+      } else if (role.chords === 'Piano' && part === 'pecah') {
         // Broken chord in eighths; the pedal keeps it ringing as one wash.
         // Every shape uses only root, fifth, octave and the third above (chord tones).
         const shapes = [[0,4,7,9,7,4,7,4],[0,4,7,4,9,4,7,4],[0,7,4,9,4,7,4,9]];
@@ -461,6 +472,14 @@ function arrange(name, variant = 0) {
       if (two) add(4, pitch(root + 4) - 24, v === 1 ? 1.8 : 3.6, .29, .01);
       // Variation: a short octave note leading into the next bar.
       if (v === 1 && !final) add(6, pitch(root) - 12, 1.6, .26, .01);
+    } else if (name === 'Drum' && role.drums && part === 'lofi') {
+      // Boom-bap: kick on one and later in the bar, snare on two and four, soft shaker eighths.
+      add(0, 'kick', .65, final ? .3 : .38);
+      if (final) continue;
+      add(v === 1 ? 3 : 5, 'kick', .5, .27);
+      if (v === 1) add(5, 'kick', .4, .2);
+      if (!cadence) { add(2, 'snare', .34, .2); add(6, 'snare', .34, .2); }
+      for (let st = 1; st < 8; st++) add(st, 'hat', .18, st % 2 ? .05 : .075);
     } else if (name === 'Drum' && role.drums && part === 'tipis') {
       add(0, 'kick', .65, final ? .26 : .3);
       if (!final && !cadence) add(4, v === 1 ? 'rim' : 'hat', .22, v === 1 ? .09 : .1);
@@ -604,6 +623,8 @@ function voice(track,event,when,audio=ctx,remaining=total()-(when-start)) {
   const rate = drum ? 1 : 2 ** ((event.note - sample.midi) / 12);
   source.playbackRate.value = rate;
   if (track.name === 'Gitar') source.detune.value = -(guitarCents[sample.key] ?? 0);
+  // Lo-fi: slow pitch drift between notes, like a worn tape.
+  if (song.genre === 'Lo-fi' && !drum) source.detune.value += 7 * Math.sin(2 * Math.PI * .3 * event.step * song.step);
   const release = event.release ?? ({ Piano:.58, Gitar:.07, Bass:.16, Drum:.03 })[track.name];
   const length = Math.min(remaining, sample.buffer.duration/rate,
     event.ring != null ? event.ring + release : drum ? sample.buffer.duration : event.len * song.step + release);
@@ -642,6 +663,7 @@ function halt(offset=0) {
   timer=null;
   position=offset;
   for(const track of song.tracks) {track.bus?.disconnect();for(const src of track.sources || []) src.stop();track.sources=[];track.bus=null}
+  song.master?.crackle?.stop();
   song.master?.disconnect();
   display(position);
   el('play').textContent=position?'Lanjutkan':'Putar';
@@ -678,8 +700,8 @@ function pump(track) {
 }
 
 function play() {
-  song.master=masterBus(ctx);
   start = ctx.currentTime + .06 - position;
+  song.master=masterBus(ctx,false,ctx.currentTime+.06,position);
   for (const track of song.tracks) scheduleTrack(track,position);
   el('play').textContent = 'Jeda';
   timer = setInterval(() => {
@@ -730,16 +752,17 @@ function newSong({genre,mood,duration,names,seed,source='kit',onlyKit=null,piano
     return song;
   }
   // Kit songs cover Akustik in the moods that have styles (Tenang, Ceria).
-  const acoustic=genre==='Akustik' && styles.some(s=>s.mood===mood);
+  // Kit songs cover every genre and mood that has styles.
+  const acoustic=styles.some(s=>s.mood===mood && s.genre===genre);
   if (acoustic) {
     // Character of this song; separate random stream so kits and key stay as before.
     const r2=rng(seed^0x51ed), pick2=list=>list[Math.floor(r2()*list.length)];
-    song.style=styles.find(s=>s.name===force.style) ?? pickStyle(mood,r2);
+    song.style=styles.find(s=>s.name===force.style) ?? pickStyle(mood,genre,r2);
     const [lo,hi]=song.style.bpm;
     song.step=30/(lo+r2()*(hi-lo));
     song.ending=force.ending ?? pick2(['kadens','kit']);
     // Each instrument starts with the style's pattern; the listener can change any of them.
-    song.parts={Gitar:song.style.guitar, Piano:song.style.piano, Drum:song.style.drum, Bass:'tahan', ...force.parts};
+    song.parts={Gitar:song.style.guitar, Piano:song.style.piano, Drum:song.style.drum, Bass:song.style.bass ?? 'tahan', ...force.parts};
     song.ritard=force.ritard ?? r2()<.5;
     if (force.key) song.key=force.key;
   }
@@ -880,7 +903,22 @@ function roomImpulse(audio) {
   return buffer;
 }
 // raw: unity gain and no ceiling, used to measure the mix before setting its level.
-function masterBus(audio, raw = false) {
+// Quiet vinyl noise for Lo-fi: soft hiss with sparse crackles. Seeded, so renders repeat.
+function crackleBuffer(audio, seconds) {
+  const rate = audio.sampleRate, length = Math.ceil(seconds * rate);
+  const buffer = audio.createBuffer(1, length, rate), data = buffer.getChannelData(0), r = rng(99);
+  let hiss = 0, pop = 0;
+  for (let i = 0; i < length; i++) {
+    hiss = hiss * .92 + (r() * 2 - 1) * .08;
+    if (r() < 4 / rate) pop = (r() < .5 ? -1 : 1) * (.04 + r() * .16);
+    data[i] = hiss * .012 + pop;
+    pop *= .82;
+  }
+  return buffer;
+}
+const crackleLevel = .5;
+// when/offset: where the crackle starts in the audio clock and how far into the song.
+function masterBus(audio, raw = false, when = 0, offset = 0) {
   const input = audio.createGain();
   input.gain.value = raw ? 1 : song.masterGain;
   const room = audio.createConvolver();
@@ -889,11 +927,27 @@ function masterBus(audio, raw = false) {
   wet.gain.value = roomLevel;
   room.connect(wet).connect(input);
   input.room = room;
-  if (raw) input.connect(audio.destination);
+  let out = input;
+  if (song.genre === 'Lo-fi') {
+    // Warm, slightly dull tone with the deepest rumble removed, plus vinyl noise.
+    const warm = audio.createBiquadFilter();
+    warm.type = 'lowpass'; warm.frequency.value = 4200; warm.Q.value = .5;
+    const clean = audio.createBiquadFilter();
+    clean.type = 'highpass'; clean.frequency.value = 45;
+    out = input.connect(warm).connect(clean);
+    const crackle = audio.createBufferSource();
+    crackle.buffer = crackleBuffer(audio, total());
+    const level = audio.createGain();
+    level.gain.value = crackleLevel;
+    crackle.connect(level).connect(input);
+    crackle.start(when, offset);
+    input.crackle = crackle;
+  }
+  if (raw) out.connect(audio.destination);
   else {
     const ceiling = audio.createWaveShaper();
     ceiling.curve = ceilingCurve;
-    input.connect(ceiling).connect(audio.destination);
+    out.connect(ceiling).connect(audio.destination);
   }
   return input;
 }

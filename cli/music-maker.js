@@ -137,7 +137,7 @@ function renderInPage(s) {
       pianoMelody: s.melodi === 'piano', force });
     const notes = [];
     if (!song.parts && (Object.keys(s.pola).length || Object.keys(s.variasi).length || s.gaya))
-      notes.push('Gaya, pola, dan variasi hanya berlaku untuk sumber kit dengan genre Akustik dan mood Tenang/Ceria; diabaikan.');
+      notes.push('Gaya, pola, dan variasi hanya berlaku untuk sumber kit dengan genre dan mood yang punya gaya (lihat "daftar"); diabaikan.');
     for (const track of song.tracks) {
       const v = s.variasi[track.name];
       if (v && song.parts?.[track.name]) {
@@ -214,7 +214,7 @@ async function show(opts) {
     const page = await openStudio(browser);
     const info = await page.evaluate(() => ({
       instruments: Object.keys(sampleData),
-      styles: styles.map(s => ({ name: s.name, mood: s.mood, bpm: s.bpm, guitar: s.guitar, piano: s.piano, drum: s.drum })),
+      styles: styles.map(s => ({ name: s.name, genre: s.genre, mood: s.mood, bpm: s.bpm, guitar: s.guitar, piano: s.piano, drum: s.drum })),
       parts: Object.fromEntries(Object.entries(partOptions).map(([n, o]) => [n, Object.entries(o).map(([k, label]) => `${k} (${label}, ${variationCount[n][k]} variasi)`)])),
       moods: [...document.querySelectorAll('#mood option')].map(o => o.value),
       genres: [...document.querySelectorAll('#genre option')].map(o => o.value)
@@ -223,8 +223,8 @@ async function show(opts) {
     console.log('Genre:      ' + info.genres.join(', '));
     console.log('Sumber:     kit (Kit orisinal), klasik (Bach)');
     console.log('Instrumen:  ' + info.instruments.join(', '));
-    console.log('\nGaya lagu (sumber kit, genre Akustik):');
-    for (const s of info.styles) console.log(`  ${s.name.padEnd(11)} mood ${s.mood.padEnd(7)} ${s.bpm[0]}–${s.bpm[1]} BPM · gitar ${s.guitar}, piano ${s.piano}, drum ${s.drum}`);
+    console.log('\nGaya lagu (sumber kit):');
+    for (const s of info.styles) console.log(`  ${s.name.padEnd(11)} ${s.genre.padEnd(8)} mood ${s.mood.padEnd(7)} ${s.bpm[0]}–${s.bpm[1]} BPM · gitar ${s.guitar}, piano ${s.piano}, drum ${s.drum}`);
     console.log('\nPola per instrumen (--pola Instrumen=nama, --variasi Instrumen=nomor):');
     for (const [n, list] of Object.entries(info.parts)) console.log(`  ${n.padEnd(6)} ${list.join(', ')}`);
   } finally {
