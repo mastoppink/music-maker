@@ -27,6 +27,7 @@ Cara kerja dengan pengguna: pengguna tidak membaca not dan tidak menilai nada. S
   - Tenang: Santai (bobot 3, favorit pengguna), Mengalir, Teduh, Sederhana.
   - Ceria: Jalan pagi, Ringan. Jalan pagi paling tidak disukai untuk lagu tenang, jadi dipindah ke Ceria.
 - **Melodi** (pilihan di UI): "Gantian piano & gitar" atau "Piano saja". Pengguna suka keduanya.
+- **Sampel**: semuanya CC0. Kick drum dipastikan CC0 oleh pengguna, yang mencarinya sendiri (tautan sumber belum dicatat). Lihat `samples/RECORDINGS.txt`.
 - **Kontrol per instrumen**: volume, bisukan, "Buat ulang" (pola baru untuk instrumen itu saja).
 - **A/B**: setiap "Buat musik" menghasilkan dua versi.
 - **Ekspor**: WAV stereo 44,1 kHz dari seluruh mix.
@@ -48,11 +49,10 @@ Cara kerja dengan pengguna: pengguna tidak membaca not dan tidak menilai nada. S
 
 ## Berikutnya (urut prioritas)
 
-1. **Ganti kick drum.** Kick masih dari koleksi lama (Tonejs `acoustic-kit`) yang lisensinya tidak jelas. Ganti dengan kick CC0 sebelum ada lagu yang diunggah. Ini wajib untuk dijual.
-2. **Kontrol per instrumen yang lebih lengkap.** Di setiap baris instrumen ada pilihan cara main: gitar petik/genjreng, piano blok/pecah, drum lembut/tipis/jalan. Tersedia juga "Buat ulang" per instrumen. Mengubah satu instrumen tidak mengubah yang lain.
-3. **Durasi untuk YouTube.** Pilihan 3 dan 5 menit (lebih banyak bagian dan variasi), dan "rangkaian" 30–60 menit dari beberapa lagu berbeda dengan jeda halus.
-4. **Mood Melankolis.** Kit bernada minor dengan format yang sama, plus gaya yang cocok.
-5. **Genre Lo-fi dan Pop** di mesin kit. Gaya baru (misalnya drum lo-fi yang diayun, suara lebih hangat) memakai kit yang sama.
-6. **Simpan dan buka proyek** (seed, mood, genre, gaya, instrumen, pengaturan tiap instrumen, volume), supaya lagu bisa dibuat persis sama lagi.
-7. **Siap unggah**: volume akhir standar YouTube (sekitar −14 LUFS), ekspor per instrumen (stem), ekspor MIDI, dan video sederhana (gambar + audio).
-8. **Hapus sumber Klasik (Bach)** kalau pengguna setuju, supaya aplikasi lebih sederhana.
+1. **Kontrol per instrumen yang lebih lengkap.** Di setiap baris instrumen ada pilihan cara main: gitar petik/genjreng, piano blok/pecah, drum lembut/tipis/jalan. Tersedia juga "Buat ulang" per instrumen. Mengubah satu instrumen tidak mengubah yang lain.
+2. **Durasi untuk YouTube.** Pilihan 3 dan 5 menit (lebih banyak bagian dan variasi), dan "rangkaian" 30–60 menit dari beberapa lagu berbeda dengan jeda halus.
+3. **Mood Melankolis.** Kit bernada minor dengan format yang sama, plus gaya yang cocok.
+4. **Genre Lo-fi dan Pop** di mesin kit. Gaya baru (misalnya drum lo-fi yang diayun, suara lebih hangat) memakai kit yang sama.
+5. **Simpan dan buka proyek** (seed, mood, genre, gaya, instrumen, pengaturan tiap instrumen, volume), supaya lagu bisa dibuat persis sama lagi.
+6. **Siap unggah**: volume akhir standar YouTube (sekitar −14 LUFS), ekspor per instrumen (stem), ekspor MIDI, dan video sederhana (gambar + audio).
+7. **Hapus sumber Klasik (Bach)** kalau pengguna setuju, supaya aplikasi lebih sederhana.
