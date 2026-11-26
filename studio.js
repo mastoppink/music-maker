@@ -31,6 +31,11 @@ async function loadBank(name) {
     for (let c=0;c<s.buffer.numberOfChannels;c++) for (const v of s.buffer.getChannelData(c)) peak=Math.max(peak,Math.abs(v));
     s.peak=peak||1;
   }
+  // Drum sounds come from different collections recorded at very different levels (the
+  // kick near full scale, the others 15-40 dB lower). Bring every sound's loudest take to
+  // the same peak; softer takes of the same sound keep their difference.
+  if (name==='Drum') for (const s of bank.Drum)
+    s.lift=Math.max(...bank.Drum.filter(o=>o.key===s.key).map(o=>o.peak));
 }
 const tuning = { LowE:40, A:45, D:50, G:55, B:59, HighE:64 };
 // Minor songs use A-minor open shapes: i = Am, iv = Dm, v = Em, VI = F (capo from A).
@@ -445,6 +450,9 @@ const trackTrim = { Bass:6, Drum:.45 };
 const gitarMelodyBoost = 4.5;
 const guitarPeak = .13;
 const strumLevel = .3;
+// Drum balance after levelling the recordings, in dB (common mixing proportions:
+// snare a little under the kick, cymbals and shaker further back). Tuned by measuring peaks.
+const drumBalance = { kick:0, snare:6, rim:3, hat:5, ride:-4 };
 const stringPeak = 1.4;
 const arpLevel = .17;
 function arrange(name, variant = 0) {
@@ -733,8 +741,11 @@ function pickSample(name,samples,event) {
   const pool = name==='Drum' ? samples.filter(s=>s.key===event.note) : samples;
   const maxLayer = Math.max(...pool.map(s=>s.layer));
   const wanted = Math.min(maxLayer,1+(layerSteps[name]??[]).filter(t=>event.level>=t).length);
-  const layered = pool.filter(s=>s.layer===wanted);
-  const choices = layered.length ? layered : pool;
+  // If that dynamic was not recorded, use the closest one (the softer on a tie), never a
+  // rotation through all of them: that used to drop the pop snare to a whisper.
+  const layers = [...new Set(pool.map(s=>s.layer))];
+  const closest = layers.reduce((a,b)=>Math.abs(b-wanted)<Math.abs(a-wanted)||(Math.abs(b-wanted)===Math.abs(a-wanted)&&b<a)?b:a);
+  const choices = pool.filter(s=>s.layer===closest);
   let best = choices;
   if (name!=='Drum') {
     const gap = s=>Math.abs(s.midi-event.note);
@@ -770,7 +781,9 @@ function voice(track,event,when,audio=ctx,remaining=total()-(when-start)) {
   gain.connect(track.bus);
   // Recorded layers already carry most of the loudness change, so scale gain gently.
   // Guitar loudness follows the played level, not the recording's own volume.
-  const shaped = track.name==='Gitar' ? event.level * guitarPeak / sample.peak : Math.sqrt(event.level*.4);
+  const shaped = track.name==='Gitar' ? event.level * guitarPeak / sample.peak
+    : drum ? Math.sqrt(event.level*.4) * .9 / sample.lift * 10 ** ((drumBalance[event.note] ?? 0) / 20)
+    : Math.sqrt(event.level*.4);
   const peak = ({ Piano:.55, Gitar:.59, Bass:.68, Drum:.62, String:stringPeak })[track.name] * shaped
     * (trackTrim[track.name] ?? 1) * (event.boost ?? 1);
   // Strings swell in gently instead of starting at full strength.
