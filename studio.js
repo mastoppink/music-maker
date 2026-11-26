@@ -57,6 +57,11 @@ let rand = Math.random;
 const scaleSteps = [0, 2, 4, 5, 7, 9, 11];
 // Key of a bar: long songs move up a whole step after the pause section (harmony.shift).
 const keyAt = bar => song.key + (song.harmony?.[bar]?.shift ?? 0);
+// Extra variety for long songs, each switchable (on unless set to false in song.vary).
+//   pola: accompaniment changes per section · rehat: drums rest in C · naik: key up after the pause
+//   oktaf: piano tune an octave up on some repeats · tukar: Klasik guitar takes the tune on repeats
+const varietyOptions = ['pola','rehat','naik','oktaf','tukar'];
+const vary = name => song.vary?.[name] !== false;
 let keyNow = null;   // set per bar while arranging
 const pitch = degree => (keyNow ?? song.key) + scaleSteps[((degree % 7) + 7) % 7] + 12 * Math.floor(degree / 7);
 
@@ -231,11 +236,11 @@ function planSong(bars) {
     const feel = section === 'Av' || section === 'Cv' ? otherFeel[song.style.feel] : song.style.feel;
     if (!(last && pos >= 2)) notes = applyFeel(notes, feel);
     harmony.push({ root, phrase, pos, section, energy, turn: Math.max(0, turn),
-      shift: lifted && section !== 'pause' ? 2 : 0,
+      shift: vary('naik') && lifted && section !== 'pause' ? 2 : 0,
       // Drums rest while the second tune is first heard; bass carries on.
-      rest: section === 'C',
+      rest: vary('rehat') && section === 'C',
       // Piano melody an octave higher on some repeats (checked against range when played).
-      high: section === 'Cv' || (lifted && section === 'Av'),
+      high: vary('oktaf') && (section === 'Cv' || (lifted && section === 'Av')),
       lift: energy === 2 || kit.kind === 'b', cadence: last && pos === 2, final: bar === bars - 1 });
     melody.push(notes);
   }
@@ -248,8 +253,8 @@ function arrangeChorale(name) {
   const has = n => song.tracks.some(t => t.name === n);
   // On every second pass piano and guitar trade places: guitar takes the tune.
   const voicesAt = pass => ({
-    Piano: has('Gitar') ? (pass % 2 ? [1,2] : [0]).concat(has('Bass') ? [] : [3]) : [0,1,2, ...(has('Bass') ? [] : [3])],
-    Gitar: has('Piano') ? (pass % 2 ? [0] : [1,2]) : [0,1,2, ...(has('Bass') ? [] : [3])],
+    Piano: has('Gitar') ? (vary('tukar') && pass % 2 ? [1,2] : [0]).concat(has('Bass') ? [] : [3]) : [0,1,2, ...(has('Bass') ? [] : [3])],
+    Gitar: has('Piano') ? (vary('tukar') && pass % 2 ? [0] : [1,2]) : [0,1,2, ...(has('Bass') ? [] : [3])],
     Bass: [3],
     Drum: []
   }[name]);
@@ -380,7 +385,7 @@ function arrange(name, variant = 0) {
   // Accompaniment changes from section to section so long songs keep moving.
   const sectionShift = { intro:0, A:0, Av:1, B:2, B2:1, C:1, Cv:2, pause:0, outro:0 };
   const swap = { petik:'genjreng', genjreng:'petik' };
-  const long = song.harmony.length >= 24;
+  const long = vary('pola') && song.harmony.length >= 24;
   const alone = song.tracks.length === 1;
   for (let bar = 0; bar < bars; bar++) {
     const { root, lift, cadence, final, section } = song.harmony[bar];
@@ -688,10 +693,10 @@ function play() {
 }
 // Build the song for the chosen settings. Akustik · Tenang is fully seeded:
 // the same seed gives the same chords and melody for any set of instruments.
-function newSong({genre,mood,duration,names,seed,source='kit',onlyKit=null,pianoMelody=false,force={}}) {
+function newSong({genre,mood,duration,names,seed,source='kit',onlyKit=null,pianoMelody=false,force={},vary={}}) {
   const bpm=({Tenang:78,Ceria:112,Melankolis:68})[mood]+({'Lo-fi':-6,Akustik:0,Pop:10})[genre];
   const r=rng(seed), choose=list=>list[Math.floor(r()*list.length)];
-  song={genre,mood,seed,duration,source,onlyKit,pianoMelody,step:30/bpm,minor:mood==='Melankolis',
+  song={genre,mood,seed,duration,source,onlyKit,pianoMelody,vary,step:30/bpm,minor:mood==='Melankolis',
     key:choose([60,62,65,67]),chords:choose([[0,3,5,4],[0,5,3,4],[0,4,5,3]]),
     tracks:names.map(name=>({name,events:[],volume:.7,muted:false})),harmony:null,variants:{}};
   if (source==='klasik') {
