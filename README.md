@@ -36,7 +36,25 @@ Piano, Gitar, Bass, dan Drum tercentang secara bawaan. **String** (biola, viola,
 | Melodi | Gantian piano & gitar, atau Piano saja |
 | Durasi | 30 detik, 1, 2, 3, 5 menit |
 
-Gaya lagu, bentuk lagu (pembuka, melodi utama, bagian tengah, jeda, penutup), dan pola per instrumen saat ini berlaku penuh untuk **Kit orisinal** untuk semua genre (**Akustik**, **Lo-fi**, **Pop**, **Jazz**, **Bossa**) dan semua mood (**Tenang**, **Ceria**, **Melankolis**). Melankolis memakai melodi bernada minor yang ditulis khusus. Bossa punya pola petik gitar nilon khas bossa nova, akor berwarna (maj7, m7), pukulan rim dengan klave bossa, dan ketukan lurus. Jazz punya ketukan diayun, walking bass, akor piano jazz, dan pola cymbal ride. Pop punya drum pop atau balada, bass berdenyut, dan akor piano berdenyut. Lo-fi punya ketukan diayun, akor piano jazz, drum boom-bap, suara hangat dengan goyang kaset, dan desis piringan hitam. 
+Gaya lagu, bentuk lagu, dan pola per instrumen berlaku untuk **Kit orisinal** di semua genre dan semua mood. Sumber **Klasik** memakai korale Bach dengan susunan sendiri.
+
+### Genre
+
+| Genre | Ciri |
+|---|---|
+| **Akustik** | Gitar nilon dipetik atau digenjreng dengan akor terbuka yang berdenging (seperti Cadd9 dan Am7), drum lembut. |
+| **Lo-fi** | Ketukan diayun, akor piano jazz, drum boom-bap, suara hangat dengan goyang kaset halus dan desis piringan hitam yang samar. |
+| **Pop** | Hi-hat drum set dengan hi-hat yang sesekali dibuka, isian snare sebelum bagian baru, bass dan akor piano berdenyut. Mood Tenang memakai drum balada. |
+| **Jazz** | Ketukan swing, walking bass yang mendekati akor secara kromatis, gerakan akor ii–V–I, akor piano dengan nada kesembilan, hi-hat drum set, melodi jazz bersinkop, solo piano di lagu panjang, penutup 6/9. |
+| **Bossa** | Pola petik gitar nilon khas bossa nova, akor berwarna (maj7, m7), bass mengikuti jempol gitar, pukulan rim dengan klave bossa, ketukan lurus. Memakai melodi dan harmoni jazz. |
+
+### Mood
+
+**Tenang** dan **Ceria** memakai 20 melodi mayor tulisan tangan. **Melankolis** memakai 12 melodi minor. Jazz dan Bossa memakai 8 melodi jazz tersendiri. Setiap mood dan genre punya beberapa **gaya** (tempo, irama melodi, pola iringan), dan setiap lagu memilih satu gaya. Daftar lengkapnya bisa dilihat dengan `node cli/music-maker.js daftar`.
+
+### Bentuk lagu
+
+Lagu 3 menit ke atas punya bagian-bagian: pembuka, melodi utama, bagian tengah yang lebih penuh, melodi kedua (di Jazz: solo piano), bagian jeda yang tipis, lalu penutup. Pola iringan berganti antarbagian, drum sesekali istirahat, dan nada dasar naik setelah bagian jeda, supaya lagu panjang tidak monoton.
 
 ## CLI
 
@@ -125,7 +143,9 @@ node cli/music-maker.js buat --dari hasil/tenang-akustik-kit-seed123.json
 Setiap lagu disimpan sebagai dua file di folder hasil:
 
 - `tenang-akustik-kit-seed123.wav`: audio stereo 44,1 kHz yang sudah di-master.
-- `tenang-akustik-kit-seed123.json`: pengaturan lengkap, termasuk gaya, pola, dan variasi yang dipakai. Simpan file ini untuk lagu yang ingin dibuat ulang.
+- `tenang-akustik-kit-seed123.json`: pengaturan lengkap, termasuk gaya, pola, variasi, nama melodi (`melodi_kit`), dan takaran dinamika yang dipakai. Simpan file ini untuk lagu yang ingin dibuat ulang. Karena nama melodinya tersimpan, lagu tetap sama walaupun nanti ada melodi baru yang ditambahkan.
+
+Catatan: file proyek yang dibuat sebelum 26 November 2026 belum menyimpan nama melodi, jadi bisa menghasilkan melodi yang berbeda.
 
 Dengan opsi tambahan:
 
@@ -142,6 +162,8 @@ Di layar, CLI menampilkan deskripsi lagu, durasi, kekerasan suara (LUFS), dan pu
 
 ## Kualitas suara
 
+- **Dinamika per frasa**: melodi mengeras menuju tengah frasa lalu melembut, nada tinggi sedikit ditekankan, dan bagian penuh lebih bertenaga daripada bagian tenang, seperti dimainkan orang.
+- **Mixing**: setiap instrumen dibersihkan dan diberi ruang sendiri (EQ), bass dikompres supaya rata, dan seluruh lagu direkatkan dengan kompresi halus. Keseimbangan antarinstrumen sudah diatur lewat uji dengar.
 - **Gema ruangan** dan **posisi kiri-kanan** (piano sedikit ke kiri, gitar sedikit ke kanan) supaya instrumen terdengar menyatu.
 - **Mastering** untuk file WAV: kekerasan suara dibawa mendekati **−14 LUFS** (acuan YouTube) dengan limiter yang menjaga puncak di bawah −1 dB. Supaya denting piano tidak gepeng, penekanan dibatasi, jadi lagu yang sangat tenang bisa berakhir sekitar −15 sampai −17 LUFS.
 
@@ -158,6 +180,6 @@ Sebelum mengunggah ke YouTube, periksa juga kebijakan monetisasi terbaru, teruta
 | `index.html` | tampilan aplikasi web |
 | `studio.js` | mesin musik: kit, gaya, bentuk lagu, pola instrumen, mix, dan mastering |
 | `classics.js` | 24 korale J.S. Bach |
-| `samples.js` | rekaman instrumen (CC0), ditanam sebagai base64 |
+| `samples.js` | rekaman instrumen (CC0), ditanam sebagai base64: piano, gitar nilon, kontrabas, drum (kick, snare, rim, shaker, hi-hat), dan string |
 | `cli/music-maker.js` | versi baris perintah |
 | `PLAN.md` | keadaan sekarang, riwayat keputusan, dan rencana berikutnya |
