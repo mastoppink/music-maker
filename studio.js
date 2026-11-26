@@ -49,6 +49,8 @@ const gripTable = () => song.minor ? minorGrips : grips;
 const capoAt = bar => keyAt(bar) - (song.minor ? 57 : 60);
 const grips = {
   0:{A:3,D:2,G:0,B:1,HighE:0},
+  // ii (Dm shape), used when Jazz turns IV into ii7.
+  1:{D:0,G:2,B:3,HighE:1},
   3:{LowE:1,A:3,D:3,G:2,B:1,HighE:1},
   4:{LowE:3,A:2,D:0,G:0,B:0,HighE:3},
   5:{A:0,D:2,G:2,B:1,HighE:0}
@@ -315,6 +317,10 @@ function planSong(bars) {
       lift: energy === 2 || kit.kind === 'b', cadence: last && pos === 2, final: bar === bars - 1 });
     melody.push(notes);
   }
+  // Jazz (major keys): IV before V becomes ii7, giving the ii-V-I that defines jazz harmony.
+  // Every melody note over IV (fa, la, do) is also a note of ii7 (re, fa, la, do).
+  if (song.genre === 'Jazz' && !song.minor)
+    harmony.forEach((h, i) => { if (h.root === 3 && harmony[i + 1]?.root === 4) { h.root = 1; h.two = true; } });
   return { harmony, melody, kitNames: used };
 }
 
@@ -501,9 +507,17 @@ function arrange(name, variant = 0) {
           notes.forEach((x, i) => add(step, pitch(x) - 12, 1, (i ? .15 : .19) * soft * level, .01 + i * .008));
       } else if (role.chords === 'Piano' && part === 'jazz') {
         // Seventh chords, lightly rolled. With a bass player the root is left out (3-5-7).
+        // In Jazz: rootless voicings with the ninth (3-5-7-9), a 6/9 chord to finish, and in
+        // variation 2 the chord is pushed half a beat early, on the "and" of four.
         const soft = role.melody === 'Piano' ? .8 : 1;
-        const notes = role.bass ? [root + 2, root + 4, root + 6] : [root, root + 4, root + 6, root + 9];
-        const hits = final ? [[0,7.5,1]] : v === 0 ? [[0,3,1],[3,5,.8]] : [[0,2,1],[2,2,.7],[5,3,.85]];
+        const jazzy = song.genre === 'Jazz';
+        // The ninth is left off v in minor keys (it would be a flat ninth).
+        const ninth = !(song.minor && root === 4);
+        const notes = jazzy && final ? (song.minor ? [2, 4, 6, 8] : [2, 4, 5, 8])
+          : jazzy && role.bass ? [root + 2, root + 4, root + 6, ...(ninth ? [root + 8] : [])]
+          : role.bass ? [root + 2, root + 4, root + 6] : [root, root + 4, root + 6, root + 9];
+        const hits = final ? [[0,7.5,1]] : v === 0 ? [[0,3,1],[3,5,.8]]
+          : jazzy ? [[0,2,1],[3,1.5,.75],[7,1,.8]] : [[0,2,1],[2,2,.7],[5,3,.85]];
         for (const [step, len, level] of hits)
           notes.forEach((x, i) => add(step, pitch(x) - 12, len, (i ? .16 : .2) * soft * level, .015 + i * .018));
       } else if (role.chords === 'Piano' && part === 'pecah') {
@@ -580,7 +594,8 @@ function arrange(name, variant = 0) {
       const tones = v === 0 ? [root, root + 2, root + 4] : [root, root + 4, root + 7];
       tones.forEach((x, i) => add(i * 2, pitch(x) - 24, 1.9, i === 0 ? .32 : .29, .01));
       // The lead-in sits next to the next root, in the same octave as that root.
-      const target = pitch(next) - 24, lead = pitch(next + (v === 0 ? -1 : 1)) - 24;
+      // Variation 1 approaches by a half step from below (chromatic), the classic jazz lead-in.
+      const target = pitch(next) - 24, lead = v === 0 ? target - 1 : pitch(next + 1) - 24;
       const shifted = lead - target > 6 ? lead - 12 : target - lead > 6 ? lead + 12 : lead;
       events.push({ step: bar * 8 + 6, note: shifted, len: 1.9, level: .28 * (.94 + .06 * rand()), delay: .01 + rand() * .008, boost: 1, approach: true });
     } else if (name === 'Bass' && role.bass && part === 'delapan' && !final) {
