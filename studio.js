@@ -181,7 +181,51 @@ const kits = [
     [0,0,3,9],[0,3,1,8],[0,4,4,7],
     [1,0,2,7],[1,2,2,8],[1,4,4,10],
     [2,0,3,9],[2,3,1,7],[2,4,4,4],
-    [3,0,2,8],[3,2,2,6],[3,4,4,4]] }
+    [3,0,2,8],[3,2,2,6],[3,4,4,4]] },
+  // Jazz kits: syncopation (notes starting between beats and held over the next one),
+  // rests (degree null) where a player would breathe, and running eighth notes.
+  // Strong beats still hold chord tones; IV bars only use fa, la, do, which also belong
+  // to the ii7 that Jazz puts in their place.
+  { name:'Kafe', kind:'a', jazz:true, chords:[0,5,3,4], melody:[
+    [0,0,2,4],[0,2,1,2],[0,3,3,4],[0,6,2,6],
+    [1,0,2,5],[1,2,1,null],[1,3,3,7],[1,6,2,5],
+    [2,0,3,3],[2,3,1,5],[2,4,2,7],[2,6,2,5],
+    [3,0,2,4],[3,2,1,6],[3,3,3,8],[3,6,2,null]] },
+  { name:'Senyum', kind:'a', jazz:true, chords:[0,3,4,0], melody:[
+    [0,0,1,7],[0,1,1,6],[0,2,2,4],[0,4,3,2],[0,7,1,null],
+    [1,0,2,null],[1,2,1,3],[1,3,3,5],[1,6,2,7],
+    [2,0,3,8],[2,3,1,6],[2,4,2,4],[2,6,2,1],
+    [3,0,6,2],[3,6,2,null]] },
+  { name:'Lantai Dansa', kind:'a', jazz:true, chords:[0,0,3,4], melody:[
+    [0,0,1,4],[0,1,1,5],[0,2,1,4],[0,3,1,2],[0,4,2,0],[0,6,1,2],[0,7,1,4],
+    [1,0,3,7],[1,3,1,null],[1,4,2,4],[1,6,2,2],
+    [2,0,1,5],[2,1,1,4],[2,2,1,3],[2,3,3,0],[2,6,2,null],
+    [3,0,3,6],[3,3,1,5],[3,4,2,4],[3,6,2,null]] },
+  { name:'Lampu Kota', kind:'b', jazz:true, chords:[5,3,4,4], melody:[
+    [0,0,3,9],[0,3,1,8],[0,4,2,7],[0,6,2,5],
+    [1,0,2,10],[1,2,1,9],[1,3,3,7],[1,6,2,null],
+    [2,0,3,8],[2,3,1,6],[2,4,2,4],[2,6,2,6],
+    [3,0,6,6],[3,6,2,null]] },
+  { name:'Malam Kota', kind:'b', jazz:true, chords:[3,0,5,4], melody:[
+    [0,0,2,7],[0,2,1,8],[0,3,3,10],[0,6,2,null],
+    [1,0,3,9],[1,3,1,7],[1,4,2,4],[1,6,2,null],
+    [2,0,2,5],[2,2,1,7],[2,3,3,9],[2,6,2,8],
+    [3,0,4,8],[3,4,2,6],[3,6,2,null]] },
+  { name:'Senja Biru', kind:'a', jazz:true, minor:true, chords:[0,3,4,0], melody:[
+    [0,0,3,4],[0,3,1,2],[0,4,2,0],[0,6,2,null],
+    [1,0,2,5],[1,2,1,3],[1,3,3,7],[1,6,2,5],
+    [2,0,3,6],[2,3,1,4],[2,4,2,8],[2,6,2,null],
+    [3,0,6,2],[3,6,2,null]] },
+  { name:'Hujan Biru', kind:'a', jazz:true, minor:true, chords:[0,5,3,4], melody:[
+    [0,0,2,7],[0,2,1,6],[0,3,3,4],[0,6,2,null],
+    [1,0,3,5],[1,3,1,4],[1,4,2,2],[1,6,2,0],
+    [2,0,2,3],[2,2,1,5],[2,3,3,7],[2,6,2,null],
+    [3,0,3,6],[3,3,1,5],[3,4,4,4]] },
+  { name:'Asap', kind:'b', jazz:true, minor:true, chords:[3,0,5,4], melody:[
+    [0,0,3,10],[0,3,1,8],[0,4,2,7],[0,6,2,null],
+    [1,0,2,9],[1,2,1,8],[1,3,3,7],[1,6,2,null],
+    [2,0,3,9],[2,3,1,7],[2,4,2,5],[2,6,2,null],
+    [3,0,4,8],[3,4,2,6],[3,6,2,null]] }
 ];
 
 // Song characters. Each seed picks one, so two songs differ in far more than the
@@ -231,6 +275,8 @@ function applyFeel(notes, feel) {
   if (feel === 'rapat') {
     const out = [];
     notes.forEach(([onset, len, degree], i) => {
+      // A rest (degree null) stays a rest.
+      if (degree === null) { out.push([onset, len, degree]); return; }
       const next = notes[i + 1]?.[2] ?? degree;
       // Step toward the next note on the weak beat; same note next means step up and back.
       const step = next > degree ? 1 : next < degree ? -1 : 1;
@@ -268,12 +314,13 @@ function planSong(bars) {
   // song.onlyKit (a kit name) plays that single kit throughout, for auditioning kits.
   const solo = kits.find(k => k.name === song.onlyKit);
   // Minor (Melankolis) songs draw from the minor kits, the others from the major ones.
-  const pool = kits.filter(k => !!k.minor === !!song.minor);
+  // Jazz songs draw from the jazz kits (syncopated, with rests), the others from the rest.
+  const pool = kits.filter(k => !!k.minor === !!song.minor && !!k.jazz === (song.genre === 'Jazz'));
   const main = solo ?? choose(pool.filter(k => k.kind === 'a'));
   const middle = solo ?? choose(pool.filter(k => k.kind === 'b'));
   // Second tunes for long songs (picked after the first two so short songs stay the same).
-  const main2 = solo ?? choose(pool.filter(k => k.kind === 'a' && k !== main));
-  const middle2 = solo ?? choose(pool.filter(k => k.kind === 'b' && k !== middle));
+  const main2 = solo ?? choose(pool.filter(k => k.kind === 'a' && k !== main)) ?? main;
+  const middle2 = solo ?? choose(pool.filter(k => k.kind === 'b' && k !== middle)) ?? middle;
   const kitFor = { intro:main, A:main, Av:main, outro:main, pause:main, B:middle, B2:middle2, C:main2, Cv:main2 };
   const phrases = bars / 4;
   const form = songForm(phrases);
@@ -486,6 +533,7 @@ function arrange(name, variant = 0) {
       step: bar * 8 + beat, note, len, level: level * (.94 + .06 * rand()), delay: delay + rand() * .008, boost });
     const playMelody = (octave, base, boost = 1) => {
       for (const [onset, len, degree] of song.melody[bar]) {
+        if (degree === null) continue;   // a rest: the player breathes
         const strong = onset % 4 === 0;
         add(onset, pitch(degree) + octave, final ? 7.6 : len, base + (strong ? .06 : 0), strong ? .03 : .015, boost);
       }
@@ -495,7 +543,7 @@ function arrange(name, variant = 0) {
       if (role.melody === 'Piano') {
         // Up an octave on marked repeats, if the whole phrase stays below C7.
         const phraseBars = song.melody.slice(bar - bar % 4, bar - bar % 4 + 4).flat();
-        const top = Math.max(...phraseBars.map(n => pitch(n[2])));
+        const top = Math.max(...phraseBars.filter(n => n[2] !== null).map(n => pitch(n[2])));
         playMelody(song.harmony[bar].high && top + 12 <= 88 ? 12 : 0, .40);
       }
       if (role.chords === 'Piano' && part === 'pulsa' && !final) {
