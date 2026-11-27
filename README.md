@@ -59,10 +59,27 @@ Lagu sekarang **ditulis seperti komposer**, bukan disambung dari potongan kit se
 
 - **Satu motif** (1 birama) dan **jawabannya** (1 birama) membawa seluruh lagu: diulang, digeser satu nada lebih rendah (sekuens), dinaikkan untuk klimaks, dan diberi hiasan kecil saat kembali.
 - **Bentuk lagu** dalam periode 8 birama: pembuka – A (berakhir menggantung di V, seperti *pertanyaan*) – A′ (*menjawab*, pulang ke nada dasar) – B (naik, **klimaks** di tengahnya) – A″ – penutup (potongan motif, V, pulang, melambat). Lagu panjang menambah bagian jeda, tema kedua (C), lalu kembali ke B dan A; setiap B berikutnya naik satu nada lagi supaya klimaks terakhir paling tinggi.
-- Nada di ketukan 1 dan 3 serta nada panjang selalu **nada akor**; sisanya kebanyakan **melangkah** (rata-rata 65–78% langkah, dulu 20–49%), ada napas di akhir frasa.
+- Nada di ketukan 1 dan 3 serta nada panjang selalu **nada akor**; sisanya kebanyakan **melangkah** (rata-rata 62–72% langkah, dulu 19–49%), ada napas di akhir frasa.
 - **Harmoni** dari progresi pilihan per tangga nada (minor: i–VI–III–VII, i–iv–VII–III, …; mayor: I–V–vi–IV, vi–IV–I–V, …). Jazz/Bossa mayor mengubah IV–V menjadi ii7–V, piano jazz memakai voicing tanpa akar dengan nada 9 (kecuali pada akor yang akan bentrok).
 - Tempo pelan tidak lagi memakai bass berjalan atau hi-hat sibuk: gaya **Malam Kelabu** (Jazz Sedih) kini tanpa drum dengan bass panjang, **Biru** (Jazz Melankolis) drum tipis dengan bass dua nada, **Kamar Sepi** (Lo-fi Sedih) drum tipis.
 - Nada dasar lebih beragam (minor: A–D termasuk Bb dan C#; mayor: C, D, Eb, F, G). Seed berbeda = motif, irama, progresi, dan nada dasar berbeda.
+
+### Aransemen yang berkembang (mesin komposisi)
+
+Setiap bagian lagu punya **lapisan** (0 = pembuka … 4 = klimaks), jadi teksturnya tidak sama dari awal sampai akhir:
+
+| Bagian | Yang terjadi |
+|---|---|
+| Pembuka (0) | instrumen pengiring saja; string masuk di birama ke-3 |
+| A pertama (1 → 1,5) | melodi + iringan jarang (piano pecah per ketukan, gitar hanya di ketukan); **bass masuk** di frasa kedua dengan nada panjang |
+| A′ (2) | **drum masuk** (pop: pola balada dulu), pola iringan penuh, string tiga suara, **cello kontra-melodi** menjawab celah melodi |
+| B (3) / B2 klimaks (4) | iringan terpenuh (variasi lebih ramai, gitar genjreng di mood ceria/tenang, bass dua nada), voicing piano membuka (oktaf atas, akar rendah di klimaks), string empat suara dan mengembang, pop memakai beat pop penuh |
+| A″ setelah klimaks (1,5 → 2) | lebih tipis dulu (tanpa drum), lalu penuh lagi |
+| Penutup (1,5) | tanpa drum, potongan motif, ritardando, akor akhir |
+
+Ditambah: *fill* drum lembut di akhir frasa sebelum bagian baru (rim untuk drum tipis, snare untuk lo-fi), dan **lengkung dinamika** seluruh lagu (melodi sekitar −1 dB di awal sampai +3,5 dB di klimaks, iringan ikut sebagian). Semua lagu mesin komposisi melambat di akhir. Periksa per bagian: `node studio/cek-aransemen.js --mood Sedih --genre Akustik --seeds 701`.
+
+Gaya baru untuk Sedih (Hujan Pelan, Surat Lama, Rindu, Sunyi, Lampu Redup, Pelabuhan) dan Melankolis (Senja Ungu, Jendela, Pulang, Hujan Kota, Gerimis Senja), supaya rangkaian panjang bisa bergiliran gaya. Catatan: karena pilihan gayanya bertambah, seed yang sama bisa mendapat gaya lain daripada sebelumnya; file `.json` lama (`--dari`) tetap menyimpan gayanya.
 
 Cara lama tetap ada: `--mesin kit`. File proyek lama (tanpa `mesin`) otomatis memakai cara lama, jadi bunyinya tetap sama. Untuk memeriksa angka-angka komposisi semua mood × genre: `node studio/cek-komposisi.js --seeds 1,2,3`.
 
@@ -110,7 +127,11 @@ Menyambung banyak lagu berbeda menjadi satu file panjang. Cara kerjanya hemat me
 2. Lagu disambung langsung di disk: ekor lagu memudar sementara lagu berikutnya masuk (crossfade equal-power).
 3. Kekerasan seluruh rangkaian diratakan dengan ffmpeg dalam dua tahap (ukur, lalu satu penguatan linear) ke **−14 LUFS**, puncak maksimal **−1,2 dBTP**. Hasil akhir WAV 24-bit (dan MP3 320k dengan `--mp3`).
 
-Setiap lagu punya seed sendiri (berjarak jauh), dan dua lagu berurutan tidak pernah memakai nada dasar yang sama.
+Setiap lagu punya seed sendiri (berjarak jauh). **Gaya bergiliran otomatis**: untuk setiap lagu dipilih gaya Mood/Genre itu yang paling jarang dipakai dan tidak muncul di 5 lagu terakhir; nada dasar tidak sama dengan 3 lagu terakhir; variasi pola berganti. Tempo ikut rentang gaya masing-masing. Lihat rencananya dulu tanpa membuat audio (beberapa detik saja):
+
+```bash
+node cli/music-maker.js rangkaian --rencana --menit 60 --campur Sedih/Akustik,Melankolis/Akustik,Sedih/Jazz
+```
 
 | Opsi | Arti | Bawaan |
 |---|---|---|
@@ -120,6 +141,8 @@ Setiap lagu punya seed sendiri (berjarak jauh), dan dua lagu berurutan tidak per
 | `--campur` | daftar `Mood/Genre` yang dipakai bergantian | mood dan genre biasa |
 | `--target` | kekerasan akhir (LUFS) | −14 |
 | `--mp3` | simpan juga MP3 320k | tidak |
+| `--rencana` | hanya daftar rencana (gaya, kunci, tempo), tanpa audio | tidak |
+| `--render` | `studio` atau `app` untuk setiap lagu (lihat di bawah) | studio bila terpasang |
 
 Opsi `buat` lainnya (instrumen, gaya, pola, dan sebagainya) berlaku untuk setiap lagu. Dengan `--midi`, MIDI setiap lagu disimpan di samping WAV-nya di `<nama>-lagu/`. Selain audio, rangkaian menyimpan:
 
@@ -243,6 +266,36 @@ File MIDI (tombol **Unduh MIDI**, atau `--midi` di CLI) berisi lebih banyak inst
 
 Sebelum menjual, periksa lisensi setiap instrumen yang dipakai di DAW. Sebagian besar instrumen gratis boleh dipakai untuk musik komersial, tapi aturannya berbeda-beda.
 
+### Cek kemiripan otomatis
+
+Setiap lagu yang dibuat (`buat` dan setiap lagu `rangkaian`) dicatat sidik melodinya di **katalog** (`~/.music-maker/katalog.json`, atau `--katalog <file>`): urutan interval melodi dalam kelompok 6 interval (tidak tergantung nada dasar), progresi akor, nada dasar, gaya. Lagu baru dibandingkan dengan **seluruh** katalog (kemiripan Jaccard). Kalau lebih dari **0,35** (`--batas-mirip`), lagu otomatis ditulis ulang dengan seed turunan (tercatat di layar), sebelum audio dibuat. Kalibrasi: 48 lagu (12 seed × 4 kombinasi) memberi kemiripan median 0,006, 95% di bawah 0,08, paling tinggi 0,15 antar lagu berbeda; seed sama di mood berbeda memberi 1,0 (melodi sama) dan langsung tertangkap. `--tanpa-cek-mirip` mematikan cek, `--reset-katalog` mengosongkan katalog (salinan lama disimpan sebagai `.lama`).
+
+### Render studio (`--render studio`)
+
+**Bawaan sejak 2026-11-27 bila alatnya terpasang** (di VPS sudah); kalau belum, CLI otomatis memakai suara aplikasi dan menyebut apa yang kurang. `--render app` memaksa suara aplikasi. Tanpa DAW/GarageBand: piano, string dan bass dirender di luar browser dengan bahan berkualitas tinggi, lalu digabung dengan gitar dan drum dari aplikasi.
+
+```bash
+node cli/music-maker.js buat --mood Sedih --genre Akustik --durasi 180 --instrumen Piano,String,Bass --melodi piano \
+  --render studio --python /home/ubuntu/studio/venv/bin/python
+# tanpa kredit (piano CC0):
+node cli/music-maker.js buat ... --render studio --piano kw
+# rangkaian juga bisa (per lagu, bisa dilanjutkan):
+node cli/music-maker.js rangkaian --menit 60 --campur Sedih/Akustik,Melankolis/Akustik --instrumen Piano,String,Bass --melodi piano --render studio --mp3
+```
+
+- **Piano**: FluidSynth + *Salamander Grand Piano V3* (bawaan, kualitas terbaik) dengan kalibrasi kekerasan per tuts (`studio/piano_cal_salamander.json`) dan pedal sustain legato (CC64), atau `--piano kw` (*Upright Piano KW*, CC0).
+- **String**: sampler sendiri di atas VSCO-2 Community Edition (CC0) dengan legato tersimulasi; kontra-melodi cello dengan portamento.
+- **Bass**: `--bass-studio busur` (contrabass digesek VSCO-2, lembut dan dalam; bawaan untuk Sedih/Melankolis kecuali Bossa) atau `petik` (bass petik aplikasi).
+- **Gitar, drum** (dan bass petik, desis vinyl lo-fi): dari aplikasi, dengan keseimbangan aplikasi.
+- **Mix**: keseimbangan antarinstrumen mengikuti aplikasi, EQ untuk kejernihan (lumpur 200–400 Hz dikurangi, presence ~3 kHz dan *air* lembut, tanpa menaikkan 5–8 kHz), bass empuk (sub 45–60 Hz ditebalkan, 130 Hz dan 250 Hz dikurangi, low-pass 1,2 kHz, saturasi halus, kompresi pelan), bass mono di bawah 120 Hz (aman di ponsel dan headset), hall sintetis, kompresi perekat, master ke −14 LUFS dengan limiter true-peak −1,35 dBTP. Laporan spektrum per lagu di `<nama>-studio.json`; untuk file apa pun: `python studio/cek_spektrum.py file.mp3`.
+- **Kebutuhan**: Python 3 dengan `numpy scipy soundfile mido pyloudnorm pedalboard numba`, `fluidsynth`, `ffmpeg`, dan folder bahan (`--aset-studio`, bawaan `/home/ubuntu/studio`) berisi `sf/SalamanderGrandPiano-SF2-V3+20200602/…sf2`, `sf/UprightPianoKW-SF2-20220221/…sf2`, `vsco/Strings/…` (VSCO-2 CE). Memori sekitar 1,3 GB per lagu 3 menit.
+
+**Kredit wajib untuk Salamander** (CC BY 3.0; ditulis otomatis ke `<nama>-kredit.txt`, `.json`, dan daftar lagu rangkaian):
+
+> Piano: Salamander Grand Piano V3 by Alexander Holm, CC BY 3.0 (https://creativecommons.org/licenses/by/3.0/)
+
+Bahan lain tidak butuh kredit: Upright Piano KW (CC0), VSCO-2 CE (CC0), dan rekaman aplikasi (CC0, lihat `samples/RECORDINGS.txt`). Hall-nya sintetis (dibuat dari noise), bukan rekaman ruangan, jadi tanpa lisensi tambahan.
+
 ## Kualitas suara
 
 - **Dinamika per frasa**: melodi mengeras menuju tengah frasa lalu melembut, nada tinggi sedikit ditekankan, dan bagian penuh lebih bertenaga daripada bagian tenang, seperti dimainkan orang.
@@ -263,6 +316,8 @@ Sebelum mengunggah ke YouTube, periksa juga kebijakan monetisasi terbaru, teruta
 | `index.html` | tampilan aplikasi web |
 | `studio.js` | mesin musik: komposisi, kit, gaya, bentuk lagu, pola instrumen, mix, dan mastering |
 | `studio/cek-komposisi.js`, `studio/cek_audio.py` | alat ukur: angka komposisi per mood × genre, dan cek audio (LUFS, LRA, klik, tumpang-tindih MIDI) |
+| `studio/render_studio.py`, `studio/piano_cal_salamander.json` | render studio (`--render studio`): piano FluidSynth terkalibrasi, string legato VSCO-2, mix dan master |
+| `studio/cek-aransemen.js`, `studio/cek_spektrum.py`, `studio/cek_rangkaian.py` | alat ukur: perkembangan aransemen per bagian, keseimbangan spektrum, cek rangkaian panjang |
 | `classics.js` | 24 korale J.S. Bach |
 | `samples.js` | rekaman instrumen (CC0), ditanam sebagai base64: piano, gitar nilon, kontrabas, drum (kick, snare, rim, shaker, hi-hat), dan string |
 | `cli/music-maker.js` | versi baris perintah |

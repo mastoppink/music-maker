@@ -395,7 +395,19 @@ const styles = [
   { name:'Sendu',      genre:'Akustik', mood:'Melankolis', weight:2, feel:'panjang', bpm:[60,66], guitar:'petik', piano:'blok',  drum:'tipis' },
   { name:'Kenangan',   genre:'Akustik', mood:'Melankolis', weight:1, feel:'asli',    bpm:[68,74], guitar:'petik', piano:'pecah', drum:'lembut' },
   { name:'Gerimis',    genre:'Lo-fi',   mood:'Melankolis', weight:1, feel:'panjang', bpm:[66,72], guitar:'petik', piano:'jazz',  drum:'lofi',   bass:'tahan' },
-  { name:'Patah hati', genre:'Pop',     mood:'Melankolis', weight:1, feel:'panjang', bpm:[64,70], guitar:'petik', piano:'pecah', drum:'balada', bass:'tahan' }
+  { name:'Patah hati', genre:'Pop',     mood:'Melankolis', weight:1, feel:'panjang', bpm:[64,70], guitar:'petik', piano:'pecah', drum:'balada', bass:'tahan' },
+  // More sad and melancholic characters, so long mixes can rotate styles (added with the composer).
+  { name:'Hujan Pelan',  genre:'Akustik', mood:'Sedih', weight:1, feel:'panjang', bpm:[52,58], guitar:'petik', piano:'pecah', drum:'tanpa', bass:'tahan' },
+  { name:'Surat Lama',   genre:'Akustik', mood:'Sedih', weight:1, feel:'panjang', bpm:[46,52], guitar:'petik', piano:'blok',  drum:'tanpa', bass:'dua' },
+  { name:'Rindu',        genre:'Lo-fi',   mood:'Sedih', weight:1, feel:'panjang', bpm:[54,60], guitar:'petik', piano:'pecah', drum:'tanpa', bass:'tahan' },
+  { name:'Sunyi',        genre:'Pop',     mood:'Sedih', weight:1, feel:'panjang', bpm:[56,62], guitar:'petik', piano:'blok',  drum:'tipis', bass:'tahan' },
+  { name:'Lampu Redup',  genre:'Jazz',    mood:'Sedih', weight:1, feel:'panjang', bpm:[58,64], guitar:'petik', piano:'jazz',  drum:'tipis', bass:'dua' },
+  { name:'Pelabuhan',    genre:'Bossa',   mood:'Sedih', weight:1, feel:'panjang', bpm:[78,86], guitar:'bossa', piano:'jazz',  drum:'tipis', bass:'bossa' },
+  { name:'Senja Ungu',   genre:'Akustik', mood:'Melankolis', weight:1, feel:'panjang', bpm:[56,62], guitar:'petik', piano:'pecah', drum:'tanpa', bass:'dua' },
+  { name:'Jendela',      genre:'Lo-fi',   mood:'Melankolis', weight:1, feel:'panjang', bpm:[60,66], guitar:'petik', piano:'pecah', drum:'tipis', bass:'tahan' },
+  { name:'Pulang',       genre:'Pop',     mood:'Melankolis', weight:1, feel:'panjang', bpm:[58,64], guitar:'petik', piano:'blok',  drum:'tipis', bass:'tahan' },
+  { name:'Hujan Kota',   genre:'Jazz',    mood:'Melankolis', weight:1, feel:'panjang', bpm:[60,66], guitar:'petik', piano:'jazz',  drum:'tanpa', bass:'tahan' },
+  { name:'Gerimis Senja',genre:'Bossa',   mood:'Melankolis', weight:1, feel:'panjang', bpm:[88,96], guitar:'bossa', piano:'jazz',  drum:'tipis', bass:'bossa' }
 ];
 function pickStyle(mood, genre, r) {
   const pool = styles.filter(s => s.mood === mood && s.genre === genre);
@@ -685,7 +697,7 @@ function composeSong(bars) {
     return out;
   };
   const harmony = [], melody = [];
-  let period = -1, firstTune = true, middles = 0;
+  let period = -1, firstTune = true, middles = 0, afterClimax = false;
   form.forEach(([section, role], phrase) => {
     const th = section === 'C' || section === 'Cv' ? t2 : t1;
     const s0 = th.start;
@@ -734,11 +746,18 @@ function composeSong(bars) {
         prevNote = e;
       }
     }
+    // Arrangement layer (0 = intro … 4 = climax): instruments enter one by one, the middle is
+    // fullest, the return after the climax starts thinner, the outro thins out again.
+    if (role === 'b1') afterClimax = false;
+    const layer = role === 'i' ? 0 : role === 'p' ? .5 : role === 'o' ? 1.5
+      : role === 'b2' ? 4 : role === 'b1' ? 3 : role === 'd1' || role === 'd2' ? 3
+      : role === 'c1' || role === 'c2' ? 2
+      : afterClimax ? (role === 'h1' ? 1.5 : 2)
+      : role === 'q1' ? 1 : role === 'q2' ? 1.5 : 2;
+    if (role === 'b2') afterClimax = true;
     for (let pos = 0; pos < 4; pos++) {
-      let energy = section === 'B' || section === 'B2' || section === 'Cv' ? 2 : 1;
-      if (section === 'intro' || section === 'pause') energy = 0;
-      if (firstTune && section !== 'intro') energy = 0;
-      harmony.push({ root: prog[pos], phrase, pos, section, energy, turn: Math.max(0, period),
+      const energy = layer >= 3 ? 2 : layer >= 2 ? 1 : 0;
+      harmony.push({ root: prog[pos], phrase, pos, section, energy, layer, turn: Math.max(0, period),
         shift: 0, rest: section === 'C' && vary('rehat'), high: false,
         lift: energy === 2, cadence: role === 'o' && pos === 2, final: phrase === form.length - 1 && pos === 3, climax: role === 'b2' && pos === 0 });
       melody.push(bars4[pos]);
@@ -805,6 +824,16 @@ function roles(bar) {
   // Bass and drums play only in sections with energy (not in the intro, the first
   // statement of the tune, or the thin pause).
   const ensemble = energy >= 1 || !melody;
+  const layer = song.harmony[bar].layer;
+  if (layer !== undefined) {
+    // Komposisi: layered entries. Bass joins in the second phrase, drums from the second
+    // statement of the tune; the outro and the thin return leave the drums out.
+    const pos = song.harmony[bar].pos;
+    return { melody, chords, layer,
+      bass: has('Bass') && (layer >= 1.5 || !melody),
+      drums: has('Drum') && layer >= 2 && section !== 'outro' && !song.harmony[bar].rest,
+      strings: has('String') && (layer > 0 || pos >= 2) };
+  }
   return { melody, chords, bass: has('Bass') && ensemble, drums: has('Drum') && ensemble && !song.harmony[bar].rest,
     strings: has('String') };
 }
@@ -929,8 +958,22 @@ function arrange(name, variant = 0) {
     const role = roles(bar);
     keyNow = keyAt(bar);
     // In long songs the guitar switches between picking and strumming in the middle sections.
-    const part = chosen && name === 'Gitar' && long && (section === 'B' || section === 'B2') ? swap[chosen] : chosen;
-    const v = part ? (variant + (long ? sectionShift[section] : 0)) % variationCount[name][part] : 0;
+    const sadMood = song.mood === 'Sedih' || song.mood === 'Melankolis';
+    const swapNow = song.harmony[bar].layer !== undefined
+      ? song.harmony[bar].layer >= 3 && !sadMood && chosen !== 'bossa'
+      : long && (section === 'B' || section === 'B2');
+    let part = chosen && name === 'Gitar' && swapNow ? swap[chosen] ?? chosen : chosen;
+    // Komposisi: in the quiet sections the bass holds long notes and pop drums play the ballad beat.
+    if (song.harmony[bar].layer !== undefined) {
+      const L0 = song.harmony[bar].layer;
+      if (name === 'Bass' && L0 < 2) part = 'tahan';
+      if (name === 'Bass' && part === 'tahan' && L0 >= 4) part = 'dua';
+      if (name === 'Drum' && part === 'pop' && L0 < 3) part = 'balada';
+    }
+    let v = part ? (variant + (long ? sectionShift[section] : 0)) % variationCount[name][part] : 0;
+    // Komposisi: sparse patterns while the song is quiet, the fuller variation from the middle on.
+    const L = role.layer;
+    if (L !== undefined && part) v = L < 2 ? 0 : L >= 3 ? Math.max(v, Math.min(1, variationCount[name][part] - 1)) : v;
     // boost scales loudness only, without changing which recorded layer is used.
     const add = (beat, note, len, level, delay = 0, boost = 1) => events.push({
       step: bar * 8 + beat, note, len, level: level * (.94 + .06 * rand()), delay: delay + rand() * .008, boost });
@@ -978,7 +1021,9 @@ function arrange(name, variant = 0) {
         const shapes = [[0,4,7,9,7,4,7,4],[0,4,7,4,9,4,7,4],[0,7,4,9,4,7,4,9]];
         const shape = final ? [0,4,7,9] : shapes[v];
         const soft = role.melody === 'Piano' ? .75 : 1;
-        shape.forEach((x, i) => add(i, pitch(root + x) - 12, final ? 7.5 : 1, arpLevel * soft * (i % 4 === 0 ? 1.15 : 1), .01));
+        // Komposisi: quarter notes while the song is quiet (layer < 2), eighths from then on.
+        const sparse = L !== undefined && L < 2 && !final;
+        shape.forEach((x, i) => { if (!sparse || i % 2 === 0) add(i, pitch(root + x) - 12, final ? 7.5 : sparse ? 2 : 1, arpLevel * soft * (i % 4 === 0 ? 1.15 : 1), .01); });
       } else if (role.chords === 'Piano' && v > 0 && !final) {
         // Repeated chords: on beats one and three, or gently pushed off the beat.
         const soft = role.melody === 'Piano' ? 1 : .85;
@@ -999,6 +1044,12 @@ function arrange(name, variant = 0) {
         }
         if (role.melody !== 'Piano' && !final) add(4, pitch(root + 7) - 12, 3.5, .17, .02);
       }
+      // Komposisi: in the full sections the left hand opens up with the octave above the root,
+      // and in the climax a low root an octave down as well (wider, warmer voicing).
+      if (role.chords === 'Piano' && L !== undefined && !final && part !== 'pulsa') {
+        if (L >= 3) add(0, pitch(root + 7) - 12, 7, .15, .03);
+        if (L >= 4 && !role.bass) add(0, pitch(root) - 24, 7.5, .2, 0);
+      }
       // While the guitar carries the tune, the piano accompaniment was 12-17 dB under it
       // (against 11 dB the other way round), so the guitar seemed to play alone. Lift it.
       // A blind test preferred this in Jazz but not in Akustik, so it applies to Jazz only.
@@ -1017,10 +1068,16 @@ function arrange(name, variant = 0) {
         }
       }
       if (role.chords === 'Gitar') {
+        const g0 = events.length;
         const quiet = role.melody !== 'Gitar' || alone;
         if (part === 'genjreng') strum(events, bar, root, final, role.bass, v);
         else if (part === 'bossa') bossaGuitar(events, bar, root, final, role.bass, v);
         else fingerpick(events, bar, root, final, lift, quiet, turn, role.bass, v);
+        // Komposisi: in the quiet opening the guitar plays on the beats only (half the notes).
+        if (L !== undefined && L < 1.5 && !final) {
+          const kept = events.slice(g0).filter(e => Math.round(e.step - bar * 8) % 2 === 0);
+          events.splice(g0, events.length - g0, ...kept);
+        }
       }
     } else if (name === 'String' && role.strings) {
       // Long chords that change with the harmony; a held chord carries over the bar line.
@@ -1032,13 +1089,38 @@ function arrange(name, variant = 0) {
           && keyAt(bar + bars) === keyAt(bar) && (bar + bars) % 4 !== 0) bars++;
         const energy = song.harmony[bar].energy ?? 1;
         // Swell slightly through each phrase in variation 2.
-        const swell = v === 1 ? .85 + .1 * (bar % 4) : 1;
+        const swell = v === 1 || L >= 4 ? .85 + .1 * (bar % 4) : 1;
         const len = final ? 8 : bars * 8;
         const voices = part === 'tinggi'
           ? [[root + 7, .16], [root + 9, .13]]
           : energy === 0 ? [[root - 7, .12], [root - 3, .14]]
           : [[root - 7, .16], [root - 5, .14], [root - 3, .14], ...(energy === 2 ? [[root + 9, .1]] : [])];
         for (const [x, level] of voices) add(0, pitch(x), len, level * swell, .02);
+      }
+      // Komposisi: a cello counter-line answers the tune in its gaps (a held note or a rest at
+      // the end of a bar), from the second statement of the tune on. Chord tones at both ends,
+      // a passing step between, in the cello register, heading for the next chord.
+      if (L !== undefined && L >= 2 && !final && section !== 'outro' && song.melody[bar]) {
+        const mel = song.melody[bar].filter(n => n[2] !== null);
+        const lastN = mel.at(-1);
+        const restAt = song.melody[bar].find(n => n[2] === null && n[1] >= 2);
+        let from = restAt ? restAt[0] : lastN && lastN[1] >= 4 ? lastN[0] + 2 : 9;
+        if (from <= 6 && (song.harmony[bar].pos % 2 === 1 || restAt)) {
+          from = Math.max(from, 4);
+          const n = from <= 4 ? 3 : 2;
+          const next = song.harmony[bar + 1]?.root ?? root;
+          const degs = n === 3 ? [root + 4, root + 3, root + 2] : [root + 4, next + 2 + (next + 2 < root + 4 ? 0 : -7)];
+          let shift = 0;
+          while (pitch(degs[0]) + shift > 62) shift -= 12;
+          while (pitch(degs[0]) + shift < 50) shift += 12;
+          const stepLen = (8 - from) / n;
+          degs.forEach((d, i) => {
+            const p = pitch(d) + shift;
+            if (p < 40 || p > 67) return;
+            events.push({ step: bar * 8 + from + i * stepLen, note: p, len: stepLen * (i === n - 1 ? 1.6 : 1.02),
+              level: (.13 + (L >= 3 ? .03 : 0)) * (.95 + .05 * rand()), delay: .02 + rand() * .01, boost: 1, counter: true });
+          });
+        }
       }
     } else if (name === 'Bass' && role.bass && part === 'bossa' && !final) {
       // Bossa bass: root on beat one, fifth on beat three, following the guitarist's thumb.
@@ -1128,9 +1210,13 @@ function arrange(name, variant = 0) {
       add(v === 1 ? 3 : 5, 'kick', .5, .27);
       if (v === 1) add(5, 'kick', .4, .2);
       if (!cadence) { add(2, 'snare', .34, .2); add(6, 'snare', .34, .2); }
+      if (L !== undefined && song.harmony[bar].pos === 3 && song.harmony[bar + 1] && song.harmony[bar + 1].section !== section)
+        for (const [st, level] of [[7,.12],[7.5,.15]]) add(st, 'snare', .25, level);
       for (let st = 1; st < 8; st++) add(st, 'hat', .18, st % 2 ? .05 : .075);
     } else if (name === 'Drum' && role.drums && part === 'tipis') {
       add(0, 'kick', .65, final ? .26 : .3);
+      if (L !== undefined && song.harmony[bar].pos === 3 && song.harmony[bar + 1] && song.harmony[bar + 1].section !== section && !final)
+        for (const [st, level] of [[6,.07],[7,.09],[7.5,.11]]) add(st, 'rim', .25, level);
       if (!final && !cadence) add(4, v === 1 ? 'rim' : 'hat', .22, v === 1 ? .09 : .1);
     } else if (name === 'Drum' && role.drums && part === 'jalan') {
       add(0, 'kick', .65, final ? .30 : .36);
@@ -1261,7 +1347,11 @@ function shapeDynamics(name, events) {
     const x = (e.step - ph * 32) / 32;
     const share = e.tune ? 1 : dynamicsShare[name] ?? .5;
     const energy = song.harmony[bar].energy ?? 1;
-    let db = d.arch * 2 * (Math.sin(Math.PI * x) - .5) * share + d.section * (energy - 1) * share;
+    const layer = song.harmony[bar].layer;
+    // Komposisi: a real arc over the whole song, about -3 dB in the intro to +3 dB at the climax
+    // for the tune (less for the band), on top of the breathing of each phrase.
+    let db = d.arch * 2 * (Math.sin(Math.PI * x) - .5) * share
+      + (layer !== undefined ? 1.5 * (layer - 2) * share : d.section * (energy - 1) * share);
     if (e.tune && phraseMean[ph] !== undefined) db += Math.max(-d.reach, Math.min(d.reach, d.reach * (e.note - phraseMean[ph]) / 7));
     e.expr = db;
   }
@@ -1477,12 +1567,12 @@ function newSong({genre,mood,duration,names,seed,source='kit',onlyKit=null,piano
     song.parts={Gitar:song.style.guitar, Piano:song.style.piano, Drum:song.style.drum, Bass:song.style.bass ?? 'tahan', String:song.style.strings ?? 'panjang', ...force.parts};
     // Sad songs always slow down at the end (the random draw is kept so other moods stay the same).
     const slowDraw=r2()<.5;
-    song.ritard=force.ritard ?? (mood==='Sedih' || slowDraw);
+    song.ritard=force.ritard ?? (mood==='Sedih' || slowDraw || song.engine!=='kit');
     // Minor keys chosen so the A-minor guitar shapes need a capo of 0 to 5.
     if (song.minor) song.key=pick2([57,59,60,62]);
     if (song.engine!=='kit') {
       // More keys for composed songs (guitar shapes still fit with capo 0-5); never the key to avoid.
-      const rk=rng(seed^0x6b6579), keys=(song.minor?[57,58,59,60,61,62]:[60,62,63,65,67]).filter(k=>k!==force.avoidKey);
+      const rk=rng(seed^0x6b6579), all=song.minor?[57,58,59,60,61,62]:[60,62,63,65,67], avoid=[].concat(force.avoidKey ?? []).map(Number), free=all.filter(k=>!avoid.includes(k)), keys=free.length?free:all;
       song.key=keys[Math.floor(rk()*keys.length)];
     }
     if (force.key) song.key=force.key;
@@ -1534,7 +1624,7 @@ async function songFromProject(p) {
     // Projects saved before the composer existed have no 'mesin' and keep the kit planner, so they sound the same.
     engine:p.mesin === 'komposisi' ? 'komposisi' : 'kit',
     // Projects saved before song shapes varied (they name their tunes but no shape) keep the old one.
-    force:{ ...force, avoidKey:p.hindari_kunci, kits:p.melodi_kit, dynamics:p.dinamika, form:p.bentuk ?? (p.melodi_kit ? { template:0, intro:true, lead:0 } : undefined) } });
+    force:{ ...force, avoidKey:p.hindari_kunci, ...(p.kunci ? { key:Number(p.kunci) } : {}), kits:p.melodi_kit, dynamics:p.dinamika, form:p.bentuk ?? (p.melodi_kit ? { template:0, intro:true, lead:0 } : undefined) } });
   const notes = [];
   if (!song.parts && (Object.keys(p.pola ?? {}).length || Object.keys(p.variasi ?? {}).length || p.gaya))
     notes.push('Gaya, pola, dan variasi hanya berlaku untuk sumber kit; diabaikan.');
@@ -1742,17 +1832,38 @@ const midiSetup = {
   Trompet:{ channel:5, program:56, volume:90, pan:80 },
   Suling:{ channel:6, program:73, volume:90, pan:44 }, Cello:{ channel:7, program:42, volume:88, pan:78 },
   Pad:{ channel:8, program:89, volume:70, pan:64, name:'Pad hangat' }, Vibrafon:{ channel:10, program:11, volume:76, pan:40 },
-  Perkusi:{ channel:9, volume:80, pan:74 }
+  Perkusi:{ channel:9, volume:80, pan:74 },
+  Kontra:{ channel:11, program:42, volume:84, pan:40, name:'Cello kontra' }
 };
 const midiDrums = { kick:36, snare:38, rim:37, hat:82, hhc:42, hhl:46, hhp:44 };
 // Track names as they appear in the MIDI file, with the genre's sound where it differs.
+// Melody fingerprint for the similarity guard: the sounding tune as intervals in 6-interval
+// groups (key-independent), plus the chord roots per bar, the key and the style.
+function fingerprint() {
+  if (!song.melody) return null;
+  const notes = [];
+  song.melody.forEach((bar, i) => { keyNow = keyAt(i); for (const [, , d] of bar) if (d !== null) notes.push(pitch(d)); keyNow = null; });
+  const iv = notes.slice(1).map((p, i) => p - notes[i]);
+  const grams = new Set();
+  for (let i = 0; i + 6 <= iv.length; i++) grams.add(iv.slice(i, i + 6).join(','));
+  return { grams: [...grams], prog: song.harmony.map(h => h.root).join(''), kunci: song.key, gaya: song.style?.name ?? null };
+}
+function similarity(a, b) {
+  if (!a?.length || !b?.length) return 0;
+  const B = new Set(b);
+  let both = 0;
+  for (const g of a) if (B.has(g)) both++;
+  return both / (a.length + B.size - both);
+}
 function midiTrackNames() {
   const band = midiBand();
   const label = { 4:'Electric piano', 26:'Gitar jazz', 33:'Bass elektrik' };
   return [...song.tracks.map(t => label[band?.programs[t.name]] ?? midiSetup[t.name].name ?? t.name),
-    ...(band ? band.extra.map(([n]) => midiSetup[n].name ?? n) : [])];
+    ...(band ? band.extra.map(([n]) => midiSetup[n].name ?? n) : []),
+    ...(song.tracks.some(t => t.events?.some(e => e.counter)) ? [midiSetup.Kontra.name] : [])];
 }
-function midiFile() {
+// midiFile({ plain: true }): only the app's own instruments (no added band), for the studio renderer.
+function midiFile({ plain = false } = {}) {
   const ppq = 480, tick = seconds => Math.max(0, Math.round(seconds / song.step * ppq / 2));
   const varLen = n => { const out = [n & 127]; while ((n >>= 7)) out.unshift((n & 127) | 128); return out; };
   const text = str => [...new TextEncoder().encode(str)];
@@ -1767,8 +1878,8 @@ function midiFile() {
   };
   const usPerQuarter = Math.round(song.step * 2 * 1e6);
   const tracks = [track('Music Maker', [[0, 0, [0xff, 0x51, 3, usPerQuarter >> 16 & 255, usPerQuarter >> 8 & 255, usPerQuarter & 255]]])];
-  const band = midiBand();
-  const parts = [];
+  const band = plain ? null : midiBand();
+  const parts = [], counter = [];
   for (const t of song.tracks) {
     if (band?.drums && t.name === 'Drum') { parts.push(['Drum', band.drums]); continue; }
     const list = [];
@@ -1777,6 +1888,12 @@ function midiFile() {
       if (band?.leadIn && e.tune && band.leadIn(song.harmony[Math.min(song.harmony.length - 1, Math.floor(e.step / 8))].section)) continue;
       const noteValue = t.name === 'Drum' ? midiDrums[e.note] : e.note;
       if (noteValue === undefined || noteValue < 0 || noteValue > 127) continue;
+      // The counter-line gets its own cello track (left out where an added cello carries the tune).
+      if (e.counter) {
+        if (!(band?.leadIn && band.leadIn(song.harmony[Math.min(song.harmony.length - 1, Math.floor(e.step / 8))].section)))
+          counter.push({ at: onset(e), seconds: e.len * song.step, note: noteValue, velocity: Math.round(30 + e.level * 160) });
+        continue;
+      }
       list.push({ at: onset(e), seconds: t.name === 'Drum' ? song.step / 2 : e.ring ?? e.len * song.step, note: noteValue,
         velocity: Math.round(30 + e.level * 160 + ((e.boost ?? 1) > 1 ? 15 : 0)) });
     }
@@ -1784,6 +1901,7 @@ function midiFile() {
     parts.push([t.name, list]);
   }
   if (band) parts.push(...band.extra);
+  if (counter.length) parts.push(['Kontra', counter]);
   for (const [name, list] of parts) {
     const setup = midiSetup[name], ch = setup.channel, out = [];
     // Genre-specific sounds (jazz guitar, electric piano in Lo-fi, electric bass in Pop).

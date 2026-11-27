@@ -39,6 +39,22 @@ Opsi untuk "buat":
                                           intro–A–A'–B (klimaks)–A''–outro, frasa tanya-jawab. kit: cara lama
   --midi-saja                             Hanya MIDI dan .json, tanpa WAV (lebih cepat, untuk dipakai di DAW)
   --stem                                  Simpan juga satu WAV per instrumen
+  --render <studio|app>                   studio (bawaan bila terpasang, misalnya di VPS): piano FluidSynth + string
+                                          sampler dengan legato, ruang hall, mix jernih dan bass empuk
+                                          (butuh Python, fluidsynth, ffmpeg dan folder bahan studio; lihat README).
+                                          Kalau belum terpasang, otomatis memakai app (suara aplikasi)
+  --piano <salamander|kw>                 Piano untuk render studio. salamander (bawaan, kualitas terbaik,
+                                          WAJIB kredit CC BY 3.0, otomatis ditulis di file kredit/daftar lagu)
+                                          atau kw (Upright Piano KW, CC0, tanpa kredit)
+  --bass-studio <busur|petik>             Bass untuk render studio: busur (contrabass digesek, lembut) atau
+                                          petik. Bawaan: busur untuk Sedih/Melankolis (kecuali Bossa), lainnya petik
+  --aset-studio <folder>                  Folder bahan studio (sf/, vsco/). Bawaan: $MUSIC_MAKER_STUDIO atau /home/ubuntu/studio
+  --python <path>                         Python dengan numpy, scipy, soundfile, mido, pyloudnorm, pedalboard
+  --katalog <file>                        Katalog sidik melodi semua lagu yang pernah dibuat (cek kemiripan).
+                                          Bawaan: ~/.music-maker/katalog.json
+  --batas-mirip <0..1>                    Batas kemiripan melodi (Jaccard 6 interval). Bawaan: 0.35
+  --tanpa-cek-mirip                       Jangan cek kemiripan dengan katalog
+  --reset-katalog                         Kosongkan katalog sebelum mulai
   --video <gambar>                        Buat juga video MP4 (gambar diam + musik). Butuh ffmpeg
   --ffmpeg <path>                         Path ke ffmpeg kalau tidak ada di PATH
 
@@ -50,6 +66,9 @@ Opsi tambahan untuk "rangkaian" (semua opsi "buat" juga berlaku untuk setiap lag
   --campur <Mood/Genre,...>               Bergantian antar kombinasi, misalnya Sedih/Akustik,Melankolis/Jazz
   --target <LUFS>                         Kekerasan akhir seluruh rangkaian. Bawaan: -14 (puncak maks -1.2 dBTP)
   --mp3                                   Simpan juga MP3 320k
+  --rencana                               Hanya susun rencana (gaya, kunci, tempo, durasi) tanpa audio, cepat
+  Gaya, nada dasar, dan variasi pola bergilir otomatis: gaya yang sama dan nada dasar yang sama tidak
+  muncul dalam 5 lagu berdekatan selama pilihannya cukup.
   Lagu yang sudah jadi disimpan di folder <nama>-lagu; kalau proses terputus, jalankan perintah
   yang sama lagi dan lagu yang sudah ada dilewati.
 
@@ -88,7 +107,7 @@ function parseArgs(argv) {
     }
     const [key, inline] = arg.slice(2).split(/=(.*)/s);
     // On/off switches need no value.
-    if (['midi', 'midi-saja', 'stem', 'mp3'].includes(key) && inline === undefined) { opts[key] = true; continue; }
+    if (['midi', 'midi-saja', 'stem', 'mp3', 'tanpa-cek-mirip', 'reset-katalog', 'rencana'].includes(key) && inline === undefined) { opts[key] = true; continue; }
     const value = inline ?? rest[++i];
     if (value === undefined) throw new Error(`Opsi --${key} butuh nilai.`);
     opts[key] = value;
@@ -104,7 +123,7 @@ const pairs = (text, name) => Object.fromEntries(list(text).map(item => {
 
 // Turn command-line options into the settings the engine needs.
 function settingsFrom(opts) {
-  const known = ['mood','genre','sumber','durasi','instrumen','melodi','seed','versi','gaya','pola','variasi','volume','bisu','keluar','dari','browser','bantuan','menit','durasi-lagu','jeda','midi','midi-saja','stem','video','ffmpeg','mesin','campur','hindari_kunci','mp3','target'];
+  const known = ['mood','genre','sumber','durasi','instrumen','melodi','seed','versi','gaya','pola','variasi','volume','bisu','keluar','dari','browser','bantuan','menit','durasi-lagu','jeda','midi','midi-saja','stem','video','ffmpeg','mesin','campur','hindari_kunci','mp3','target','render','piano','bass-studio','aset-studio','python','katalog','tanpa-cek-mirip','batas-mirip','reset-katalog','rencana'];
   for (const key of Object.keys(opts)) if (!known.includes(key)) throw new Error(`Opsi tidak dikenal: --${key}. Lihat "bantuan".`);
   const base = opts.dari ? JSON.parse(fs.readFileSync(opts.dari, 'utf8')) : {};
   const s = {
@@ -176,11 +195,17 @@ function renderInPage(s) {
     const result = await songFromProject(s);
     if (result.error) return { error: result.error };
     const notes = result.notes;
+    const fp = fingerprint();
+    if (fp && s.__katalog) {
+      let worst = null;
+      for (const e of s.__katalog) { const x = similarity(fp.grams, e.grams); if (!worst || x > worst.skor) worst = { skor: x, id: e.id }; }
+      if (worst && worst.skor > s.__batas) return { mirip: worst, fingerprint: fp };
+    }
     // Names of the MIDI tracks (full band for the genre), for the summary on screen.
     const midiTracks = midiTrackNames();
     if (s.midiOnly) {
       window.__midi = midiFile();
-      return { description: describe(song), seconds: total(), gaya: song.style?.name ?? null, pola: song.parts ?? {},
+      return { fingerprint: fp, kunci: song.key, bpm: Math.round(30 / song.step), description: describe(song), seconds: total(), gaya: song.style?.name ?? null, pola: song.parts ?? {},
         variasi: Object.fromEntries(song.tracks.filter(t => song.parts?.[t.name]).map(t => [t.name, (song.variants[t.name] ?? 0) % variationCount[t.name][song.parts[t.name]] + 1])),
         kits: song.kitChoice ?? null, dynamics: song.dynamics, form: song.formChoice ?? null, notes, midiTracks };
     }
@@ -193,7 +218,7 @@ function renderInPage(s) {
     const variants = {};
     for (const track of song.tracks) if (song.parts?.[track.name])
       variants[track.name] = (song.variants[track.name] ?? 0) % variationCount[track.name][song.parts[track.name]] + 1;
-    return { description: describe(song), seconds: buf.duration, lufs: buf.loudness, peakDb: 20 * Math.log10(peak),
+    return { fingerprint: fp, bpm: Math.round(30 / song.step), description: describe(song), seconds: buf.duration, lufs: buf.loudness, peakDb: 20 * Math.log10(peak),
       gaya: song.style?.name ?? null, pola: song.parts ?? {}, variasi: variants, kits: song.kitChoice ?? null, dynamics: song.dynamics, form: song.formChoice ?? null, notes, midiTracks, kunci: song.key, size: window.__wav.length };
   };
 }
@@ -243,6 +268,120 @@ function saveVideo(wavFile, image, ffmpeg = 'ffmpeg') {
   return out;
 }
 
+
+// ---- Similarity guard: a catalog of melody fingerprints of every song made ----
+const os = require('os');
+const SALAMANDER_CREDIT = 'Piano: Salamander Grand Piano V3 by Alexander Holm, CC BY 3.0 (https://creativecommons.org/licenses/by/3.0/)';
+function catalogOf(opts) {
+  if (opts['tanpa-cek-mirip']) return null;
+  const file = path.resolve(opts.katalog ?? path.join(os.homedir(), '.music-maker', 'katalog.json'));
+  if (opts['reset-katalog'] && fs.existsSync(file)) { fs.renameSync(file, file + '.lama'); console.log(`Katalog dikosongkan (salinan lama: ${file}.lama)`); }
+  const data = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : { versi: 1, lagu: [] };
+  const limit = Number(opts['batas-mirip'] ?? 0.35);
+  if (!(limit > 0 && limit <= 1)) throw new Error('--batas-mirip harus antara 0 dan 1.');
+  return { file, data, limit,
+    add(entry) { this.data.lagu = this.data.lagu.filter(e => e.id !== entry.id); this.data.lagu.push(entry);
+      fs.mkdirSync(path.dirname(this.file), { recursive: true });
+      fs.writeFileSync(this.file + '.part', JSON.stringify(this.data)); fs.renameSync(this.file + '.part', this.file); } };
+}
+// Compose (and render) one song; if its melody is too close to any song in the catalog, try again
+// with a derived seed (logged), before any audio is rendered.
+async function renderChecked(page, s, catalog, extra = {}, selfId = null) {
+  let last = null;
+  for (let k = 0; k < 8; k++) {
+    const t = k ? { ...s, seed: s.seed + k * 104729, melodi_kit: undefined, bentuk: undefined } : s;
+    const info = await page.evaluate(renderInPage(t), { ...t, ...extra,
+      ...(catalog ? { __katalog: catalog.data.lagu.filter(e => e.id !== selfId).map(e => ({ id: path.basename(e.id), grams: e.grams })), __batas: catalog.limit } : {}) });
+    if (info.error) throw new Error(info.error);
+    if (!info.mirip) return { info, s: t };
+    console.log(`\n  Melodi seed ${t.seed} terlalu mirip dengan ${info.mirip.id} (${info.mirip.skor.toFixed(2)} > ${catalog.limit}); dibuat ulang dengan seed lain…`);
+    last = info;
+  }
+  throw new Error('Delapan percobaan tetap terlalu mirip dengan katalog; naikkan --batas-mirip atau pakai --reset-katalog.');
+}
+function catalogEntry(id, info, s) {
+  const f = info.fingerprint ?? {};
+  return { id, waktu: new Date().toISOString(), mood: s.mood, genre: s.genre, seed: s.seed, gaya: f.gaya ?? info.gaya ?? null,
+    kunci: f.kunci ?? info.kunci ?? null, progresi: f.prog ?? null, grams: f.grams ?? [] };
+}
+
+// ---- Studio render: piano, strings and (bowed) bass outside the browser, the rest from the app ----
+// Studio render is the default wherever its tools are installed (Python packages, fluidsynth,
+// ffmpeg and the instrument folder); otherwise the app's own render is used, with a note.
+function studioReady(opts) {
+  const { spawnSync } = require('child_process');
+  const assets = opts['aset-studio'] ?? process.env.MUSIC_MAKER_STUDIO ?? '/home/ubuntu/studio';
+  const pythons = [opts.python, process.env.MUSIC_MAKER_PYTHON, path.join(assets, 'venv', 'bin', 'python'), 'python3'].filter(Boolean);
+  const missing = [];
+  if (!fs.existsSync(path.join(assets, 'vsco', 'Strings'))) missing.push(`folder bahan ${assets}`);
+  if (spawnSync('fluidsynth', ['--version']).status !== 0) missing.push('fluidsynth');
+  if (spawnSync(opts.ffmpeg ?? 'ffmpeg', ['-version']).status !== 0) missing.push('ffmpeg');
+  const python = pythons.find(p => spawnSync(p, ['-c', 'import numpy, scipy, soundfile, mido, pyloudnorm, pedalboard']).status === 0);
+  if (!python) missing.push('Python dengan numpy/scipy/soundfile/mido/pyloudnorm/pedalboard');
+  return { ok: !missing.length, missing, python, assets };
+}
+function studioOptions(opts, s) {
+  const asked = opts.render ?? process.env.MUSIC_MAKER_RENDER ?? null;
+  if (asked && !['app', 'studio'].includes(asked)) throw new Error('--render harus app atau studio.');
+  if (asked === 'app') return null;
+  const ready = studioReady(opts);
+  if (!ready.ok) {
+    if (asked === 'studio') throw new Error('Render studio belum bisa: belum ada ' + ready.missing.join(', ') + '. Lihat README bagian "Render studio".');
+    console.log('Render: aplikasi (render studio belum terpasang: ' + ready.missing.join(', ') + ')');
+    return null;
+  }
+  const piano = opts.piano ?? 'salamander';
+  if (!['salamander', 'kw'].includes(piano)) throw new Error('--piano harus salamander atau kw.');
+  const fixedBass = opts['bass-studio'] ?? null;
+  if (fixedBass && !['busur', 'petik'].includes(fixedBass)) throw new Error('--bass-studio harus busur atau petik.');
+  const bass = fixedBass ?? 'busur untuk Sedih/Melankolis kecuali Bossa, lainnya petik';
+  if (!asked) console.log(`Render: studio (otomatis; piano ${piano}, bass ${bass}). Pakai --render app untuk suara aplikasi.`);
+  return { piano, bass, fixedBass, bassFor: x => fixedBass ?? (['Sedih', 'Melankolis'].includes(x.mood) && x.genre !== 'Bossa' ? 'busur' : 'petik'), python: ready.python, assets: ready.assets, ffmpeg: opts.ffmpeg ?? 'ffmpeg' };
+}
+// The song must already be composed in the page (renderInPage with midiOnly). Writes <base>.wav.
+async function studioRender(page, base, st0, s, quiet = false) {
+  const { spawnSync } = require('child_process');
+  const st = { ...st0, bass: st0.bassFor(s) };
+  fs.writeFileSync(base + '-studio.mid', Buffer.from(await page.evaluate(() => Array.from(midiFile({ plain: true })))));
+  const studioTracks = ['Piano', 'String', ...(st.bass === 'busur' ? ['Bass'] : [])];
+  const r = await page.evaluate(async studioTracks => {
+    const saved = song.tracks.map(t => t.muted);
+    const solo = names => { song.tracks.forEach((t, i) => { t.muted = saved[i] || !names.includes(t.name); }); return renderMix(false); };
+    const ref = {};
+    try {
+      masterBus.noNoise = true;
+      for (const [i, t] of song.tracks.entries()) if (!saved[i] && studioTracks.includes(t.name)) ref[t.name] = loudness(await solo([t.name]));
+      masterBus.noNoise = false;
+      const rest = song.tracks.filter((t, i) => !saved[i] && !studioTracks.includes(t.name)).map(t => t.name);
+      let size = 0, gain = 1;
+      if (rest.length || song.genre === 'Lo-fi') {
+        const b = await solo(rest);
+        let peak = 0;
+        for (let c = 0; c < b.numberOfChannels; c++) for (const x of b.getChannelData(c)) peak = Math.max(peak, Math.abs(x));
+        gain = peak > .89 ? .89 / peak : 1;
+        if (gain !== 1) for (let c = 0; c < b.numberOfChannels; c++) { const d = b.getChannelData(c); for (let k = 0; k < d.length; k++) d[k] *= gain; }
+        window.__wav = new Uint8Array(await wav(b).arrayBuffer()); size = window.__wav.length;
+      }
+      const takt = song.harmony ? song.harmony.map((h, i) => onset({ step: i * 8, delay: 0 })) : [];
+      return { ref, rest, size, gain, takt, genre: song.genre, mood: song.mood, seed: song.seed };
+    } finally { masterBus.noNoise = false; song.tracks.forEach((t, i) => { t.muted = saved[i]; }); }
+  }, studioTracks);
+  const sisa = base + '-sisa.wav', refFile = base + '-ref.json';
+  if (r.size) fs.writeFileSync(sisa, await fetchWav(page, r.size));
+  fs.writeFileSync(refFile, JSON.stringify({ ref: r.ref, sisaGain: r.gain, takt: r.takt, genre: r.genre, mood: r.mood, seed: r.seed }));
+  const script = path.join(root, 'studio', 'render_studio.py');
+  const args = [script, '--midi', base + '-studio.mid', '--ref', refFile, '--out', base + '.wav.part', '--piano', st.piano,
+    '--bass', st.bass, '--assets', st.assets, '--target', String(s.mastering?.targetLoudness ?? -14), '--lapor', base + '-studio.json',
+    ...(r.size ? ['--sisa', sisa] : [])];
+  const p = spawnSync(st.python, args, { encoding: 'utf8', maxBuffer: 1 << 26 });
+  if (p.status !== 0) throw new Error('Render studio gagal: ' + (p.stderr || p.stdout || '').trim().split('\n').slice(-3).join(' | '));
+  fs.renameSync(base + '.wav.part', base + '.wav');
+  for (const f of [sisa, refFile]) if (fs.existsSync(f)) fs.unlinkSync(f);
+  const rep = JSON.parse(fs.readFileSync(base + '-studio.json', 'utf8'));
+  if (st.piano === 'salamander') fs.writeFileSync(base + '-kredit.txt', SALAMANDER_CREDIT + '\n');
+  return rep;
+}
+
 async function make(opts) {
   const midiOnly = !!opts['midi-saja'];
   if (midiOnly && (opts.stem || opts.video)) throw new Error('--midi-saja tidak membuat audio, jadi tidak bisa digabung dengan --stem atau --video.');
@@ -250,26 +389,34 @@ async function make(opts) {
   const count = Math.max(1, Number(opts.versi ?? 1));
   const outDir = path.resolve(opts.keluar ?? 'hasil');
   fs.mkdirSync(outDir, { recursive: true });
+  const catalog = catalogOf(opts);
+  if (opts.stem && opts.render === 'studio') throw new Error('--stem belum tersedia untuk --render studio.');
+  // --stem keeps the app render (stems per instrument come from the app).
+  const studio = midiOnly || opts.stem ? null : studioOptions(opts, settings);
   const browser = await launch(opts.browser);
   try {
     const page = await openStudio(browser);
     for (let i = 0; i < count; i++) {
       // Extra versions get their own tunes; only the first keeps the saved ones.
-      const s = { ...settings, seed: settings.seed + i, ...(i ? { melodi_kit: undefined, bentuk: undefined } : {}) };
+      const s0 = { ...settings, seed: settings.seed + i, ...(i ? { melodi_kit: undefined, bentuk: undefined } : {}) };
       const started = Date.now();
-      process.stdout.write(`Membuat lagu ${i + 1}/${count} (seed ${s.seed})… `);
-      const info = await page.evaluate(renderInPage(s), { ...s, midiOnly });
-      if (info.error) throw new Error(info.error);
+      process.stdout.write(`Membuat lagu ${i + 1}/${count} (seed ${s0.seed})… `);
+      const checked = await renderChecked(page, s0, catalog, { midiOnly: midiOnly || !!studio });
+      const info = checked.info, s = checked.s;
       const name = `${s.mood}-${s.genre}-${s.sumber}-seed${s.seed}`.toLowerCase().replace(/[^a-z0-9-]+/g, '-');
       const file = path.join(outDir, name + '.wav');
-      if (!midiOnly) fs.writeFileSync(file, await fetchWav(page, info.size));
+      let studioReport = null;
+      if (studio) studioReport = await studioRender(page, file.replace(/\.wav$/, ''), studio, s);
+      else if (!midiOnly) fs.writeFileSync(file, await fetchWav(page, info.size));
+      if (catalog) catalog.add(catalogEntry(file.replace(/\.wav$/, ''), info, s));
       // Settings file: the exact pattern and variation used, so --dari reproduces this song.
-      const saved = { ...s, gaya: info.gaya ?? s.gaya, pola: info.pola, variasi: info.variasi, ...(info.kits ? { melodi_kit: info.kits } : {}), dinamika: info.dynamics, ...(info.form ? { bentuk: info.form } : {}) };
+      const saved = { ...s, ...(studio ? { render: 'studio', piano: studio.piano, 'bass-studio': studio.bassFor(s), ...(studio.piano === 'salamander' ? { kredit: SALAMANDER_CREDIT } : {}) } : {}), gaya: info.gaya ?? s.gaya, pola: info.pola, variasi: info.variasi, ...(info.kits ? { melodi_kit: info.kits } : {}), dinamika: info.dynamics, ...(info.form ? { bentuk: info.form } : {}) };
       fs.writeFileSync(path.join(outDir, name + '.json'), JSON.stringify(saved, null, 2) + '\n');
       const min = Math.floor(info.seconds / 60), sec = Math.round(info.seconds % 60);
       console.log(`selesai dalam ${Math.round((Date.now() - started) / 1000)} detik`);
       console.log(`  ${info.description}`);
-      console.log(`  Durasi ${min}:${String(sec).padStart(2, '0')}` + (midiOnly ? '' : ` · ${info.lufs.toFixed(1)} LUFS · puncak ${info.peakDb.toFixed(1)} dB`));
+      console.log(`  Durasi ${min}:${String(sec).padStart(2, '0')}` + (studioReport ? ` · studio ${studioReport.lufs} LUFS · puncak ${studioReport.true_peak} dBTP` : midiOnly ? '' : ` · ${info.lufs.toFixed(1)} LUFS · puncak ${info.peakDb.toFixed(1)} dB`));
+      if (studio?.piano === 'salamander') console.log('  Kredit wajib: ' + SALAMANDER_CREDIT);
       // Only instruments that are in the song (the pattern list also names unused ones).
       const played = Object.entries(info.pola).filter(([k]) => info.variasi[k]);
       if (played.length) console.log('  Pola: ' + played.map(([k, v]) => `${k}=${v} (variasi ${info.variasi[k]})`).join(', '));
@@ -326,39 +473,76 @@ async function mix(opts) {
   const rate = 44100, frameBytes = 4;
   const secondsOf = f => (fs.statSync(f).size - 44) / (rate * frameBytes);
   // 1. Songs, one by one; finished ones (WAV + .json) are kept and skipped on a rerun.
-  const songs = [];
-  let length = 0, browser = null, page = null, prevKey = null;
+  // Styles rotate: for each song the least-used style of its Mood/Genre that has not been heard in
+  // the last 5 songs, a key not used in the last 3 songs, and pattern variations that alternate.
+  const catalog = opts.rencana ? null : catalogOf(opts);
+  const studio = opts.rencana ? null : studioOptions(opts, settings);
+  const plan = !!opts.rencana;
+  const songs = [], history = [], styleUse = {};
+  let length = 0, browser = null, page = null;
+  const ensurePage = async () => { if (!browser) { browser = await launch(opts.browser); page = await openStudio(browser); } return page; };
+  const stylePool = {};
   try {
     for (let i = 0; length < minutes * 60 - 20; i++) {
       const combo = combos[i % combos.length];
+      const ck = combo.mood + '/' + combo.genre;
+      if (!stylePool[ck]) stylePool[ck] = await (await ensurePage()).evaluate(([m, g]) => styles.filter(x => x.mood === m && x.genre === g).map(x => x.name), [combo.mood, combo.genre]);
+      const recent = history.slice(-5);
+      let gaya = settings.gaya ?? null;
+      if (!gaya && stylePool[ck].length) {
+        const pool = stylePool[ck].filter(n => !recent.some(h => h.gaya === n));
+        const from = pool.length ? pool : stylePool[ck];
+        gaya = from.reduce((best, n) => (styleUse[n] ?? 0) < (styleUse[best] ?? 0) ? n : best, from[0]);
+      }
+      const occurrence = history.filter(h => h.combo === ck).length;
+      const variasi = { ...Object.fromEntries(['Piano', 'Gitar', 'Bass', 'Drum', 'String'].map(n => [n, 1 + (occurrence + i) % 3])), ...settings.variasi };
+      const avoid = history.slice(-3).map(h => h.kunci).filter(k => k !== null && k !== undefined);
       // Seeds far apart per combination, so songs of a mix never repeat one another.
-      const s = { ...settings, ...combo, seed: settings.seed + i * 7919, ...(prevKey !== null ? { hindari_kunci: prevKey } : {}) };
+      const s = { ...settings, ...combo, gaya, variasi, seed: settings.seed + i * 7919, ...(avoid.length ? { hindari_kunci: avoid } : {}) };
       const base = path.join(songDir, `lagu-${String(i + 1).padStart(3, '0')}-seed${s.seed}`);
       let info;
-      if (fs.existsSync(base + '.json') && fs.existsSync(base + '.wav')) {
+      if (!plan && fs.existsSync(base + '.json') && fs.existsSync(base + '.wav')) {
         info = JSON.parse(fs.readFileSync(base + '.json', 'utf8'));
         console.log(`Lagu ${i + 1} sudah ada, dilewati · ${info.description}`);
       } else {
-        if (!browser) { browser = await launch(opts.browser); page = await openStudio(browser); }
+        await ensurePage();
         const started = Date.now();
-        process.stdout.write(`Lagu ${i + 1} (${combo.mood} ${combo.genre}, seed ${s.seed})… `);
-        const r = await page.evaluate(renderInPage(s), s);
-        if (r.error) throw new Error(r.error);
-        fs.writeFileSync(base + '.wav.part', await fetchWav(page, r.size));
-        if (opts.midi) fs.writeFileSync(base + '.mid', Buffer.from(await page.evaluate(() => Array.from(midiFile()))));
-        info = { description: r.description, gaya: r.gaya, kunci: r.kunci, mood: combo.mood, genre: combo.genre, seed: s.seed, lufs: r.lufs };
-        fs.renameSync(base + '.wav.part', base + '.wav');
-        fs.writeFileSync(base + '.json', JSON.stringify(info, null, 2) + '\n');
+        process.stdout.write(`Lagu ${i + 1} (${combo.mood} ${combo.genre}${gaya ? ' · ' + gaya : ''}, seed ${s.seed})… `);
+        const checked = await renderChecked(page, s, catalog, { midiOnly: plan || !!studio }, base);
+        const r = checked.info;
+        let lufs = r.lufs;
+        if (plan) { /* plan only: nothing written per song */ }
+        else if (studio) lufs = (await studioRender(page, base, studio, checked.s)).lufs;
+        else { fs.writeFileSync(base + '.wav.part', await fetchWav(page, r.size)); fs.renameSync(base + '.wav.part', base + '.wav'); }
+        if (opts.midi && !plan) fs.writeFileSync(base + '.mid', Buffer.from(await page.evaluate(() => Array.from(midiFile()))));
+        info = { description: r.description, gaya: r.gaya, kunci: r.kunci, bpm: r.bpm, mood: combo.mood, genre: combo.genre, seed: checked.s.seed, lufs,
+          ...(plan ? { detik: r.seconds } : {}), ...(studio ? { render: 'studio', piano: studio.piano } : {}) };
+        if (catalog) catalog.add(catalogEntry(base, r, checked.s));
+        if (!plan) fs.writeFileSync(base + '.json', JSON.stringify(info, null, 2) + '\n');
         console.log(`${Math.round((Date.now() - started) / 1000)} dtk · ${r.description}`);
       }
-      prevKey = info.kunci ?? null;
-      const secs = secondsOf(base + '.wav');
+      history.push({ combo: ck, gaya: info.gaya, kunci: info.kunci ?? null });
+      if (info.gaya) styleUse[info.gaya] = (styleUse[info.gaya] ?? 0) + 1;
+      const secs = plan ? info.detik : secondsOf(base + '.wav');
       songs.push({ ...info, file: base + '.wav', seconds: secs });
       length += secs - (i ? fade : 0);
-      process.stdout.write(`  total sekarang ${clock(length)} dari ${minutes}:00\n`);
+      process.stdout.write(`  total sekarang ${clock(length)} dari ${clock(minutes * 60)}\n`);
     }
   } finally {
     if (browser) await browser.close();
+  }
+  const keyName = k => k === null || k === undefined ? '' : ' · ' + ['C','C#','D','Eb','E','F','F#','G','Ab','A','Bb','B'][k % 12];
+  const minorMark = s => s.kunci !== undefined && s.kunci !== null && ['Sedih','Melankolis'].includes(s.mood) ? 'm' : '';
+  const credit = songs.some(x => x.piano === 'salamander') ? '\nKredit: ' + SALAMANDER_CREDIT + '\n' : '';
+  if (plan) {
+    let t = 0;
+    const lines = songs.map((x, i) => { const line = `${clock(t)} Lagu ${i + 1} · ${x.mood} ${x.genre}${x.gaya ? ' · ' + x.gaya : ''}${keyName(x.kunci)}${minorMark(x)} · ${x.bpm} BPM · seed ${x.seed}`; t += x.seconds - fade; return line; });
+    fs.writeFileSync(path.join(outDir, name + '-rencana.txt'), lines.join('\n') + '\n');
+    console.log(lines.join('\n'));
+    const used = Object.entries(styleUse).sort((a, b) => b[1] - a[1]).map(([n, c]) => `${n} ${c}x`).join(', ');
+    console.log(`\nRencana ${clock(length)}, ${songs.length} lagu. Gaya: ${used}`);
+    console.log(`  ${path.join(outDir, name + '-rencana.txt')}`);
+    return;
   }
   // 2. Join on disk: the tail of each song fades out while the next one fades in (equal power).
   const joined = path.join(songDir, 'gabungan.wav');
@@ -419,9 +603,9 @@ async function mix(opts) {
     fs.renameSync(joined, file);
     console.log('ffmpeg tidak ditemukan: kekerasan akhir tidak diratakan (setiap lagu sudah di-master sendiri).');
   }
-  const keyName = k => k === null || k === undefined ? '' : ' · ' + ['C','C#','D','Eb','E','F','F#','G','Ab','A','Bb','B'][k % 12];
   fs.writeFileSync(path.join(outDir, name + '.txt'), chapters.map(([t, s], i) =>
-    `${clock(t)} Lagu ${i + 1} · ${s.mood} ${s.genre}${s.gaya ? ' · ' + s.gaya : ''}${keyName(s.kunci)}${s.kunci !== undefined && ['Sedih','Melankolis'].includes(s.mood) ? 'm' : ''}`).join('\n') + '\n');
+    `${clock(t)} Lagu ${i + 1} · ${s.mood} ${s.genre}${s.gaya ? ' · ' + s.gaya : ''}${keyName(s.kunci)}${minorMark(s)}`).join('\n') + '\n' + credit);
+  if (credit) console.log('Kredit wajib (sudah ditulis di daftar lagu): ' + SALAMANDER_CREDIT);
   fs.writeFileSync(path.join(outDir, name + '.json'), JSON.stringify({ ...settings, campur: opts.campur ?? null, menit: minutes, 'durasi-lagu': each, jeda: fade,
     kekerasan: measured ? { sebelum: Number(measured.input_i), target } : null,
     lagu: chapters.map(([t, s]) => ({ mulai: clock(t), mood: s.mood, genre: s.genre, seed: s.seed, deskripsi: s.description })) }, null, 2) + '\n');

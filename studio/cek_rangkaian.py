@@ -8,7 +8,7 @@ import numpy as np
 wav = sys.argv[1]; txt = wav[:-4] + '.txt'
 def secs(t):
     p = [int(x) for x in t.split(':')]; return sum(v * 60 ** i for i, v in enumerate(reversed(p)))
-starts = [secs(l.split()[0]) for l in open(txt) if l.strip()][1:]
+starts = [secs(l.split()[0]) for l in open(txt) if l.strip() and l.split()[0].replace(':', '').isdigit()][1:]
 r = subprocess.run(['ffmpeg', '-hide_banner', '-nostats', '-i', wav, '-af', 'ebur128=peak=true', '-f', 'null', '-'], capture_output=True, text=True).stderr
 tail = r[r.rfind('Summary'):]
 g = lambda k: float(re.search(k + r':\s+(-?[\d.]+)', tail).group(1))
