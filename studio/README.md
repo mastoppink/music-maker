@@ -25,6 +25,9 @@ Path sampel di skrip masih path server (`/home/ubuntu/studio/...`), sesuaikan.
 | `studio_render_legato.py` | sama, plus legato simulasi (sustain-entry crossfade, portamento cello) |
 | `studio_render_cc0.py` | versi piano CC0 (Upright KW) |
 | `compose_sedih01.py`, `compose_sedih01_legato.py`, `compose_sedih02.py` | lagu yang dikomposisi manual: motif, frasa tanya-jawab, klimaks, humanisasi, ritardando |
+| `compose_sedih02_v4.py` | Sedih 02 v4: dinamika lebih rapat, string 4 suara (cello–2 viola–biola, nada sama diikat), pedal sustain CC64 sungguhan |
+| `studio_render_legato_v4.py` | render legato + level rider pelan (hanya menaikkan, maks +7 dB; kekuatan lewat env `RIDE`, 0.25 utama / 0.45 versi rata) |
+| `sedih02v4.sh`, `v4tools.py`, `pedaltest.py`, `cc64.py` | skrip render v4, cek (LRA, jarak intro–klimaks, kerataan not, jumlah not per seksi string, CC64), uji pedal FluidSynth |
 | `piano_calib.py` → `piano_cal_salamander.json` | ukur volume tiap tuts Salamander di velocity 20–80; dipakai `compose_sedih02.py` untuk menyetarakan volume not |
 | `qc.py`, `bal.py`, `pulse.py`, `pitchcheck.py` | alat cek: loudness/LRA/spektrum/klik, kerataan not intro, denyut, pitch |
 
