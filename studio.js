@@ -66,6 +66,14 @@ const bossaGrips = { 0:{A:3,D:2,G:0,B:0,HighE:0}, 1:{D:0,G:2,B:1,HighE:1}, 3:{D:
   4:{LowE:3,A:2,D:0,G:0,B:0,HighE:1}, 5:{A:0,D:2,G:0,B:1,HighE:0} };
 const bossaMinorGrips = { 0:{A:0,D:2,G:0,B:1,HighE:0}, 3:{D:0,G:2,B:1,HighE:1},
   4:{LowE:0,A:2,D:0,G:0,B:0,HighE:0}, 5:{D:3,G:2,B:1,HighE:0} };
+// Chords the composer also uses (2026-11-27): minor ii° (Bm7b5), III (C), VII (G); major iii (Em),
+// vii° (Bm7b5). Shapes added to every table that lacks them.
+const extraMinorGrips = { 1:{A:2,D:3,G:2,B:3,HighE:1}, 2:{A:3,D:2,G:0,B:1,HighE:0}, 6:{LowE:3,A:2,D:0,G:0,B:0,HighE:3} };
+const extraMajorGrips = { 2:{LowE:0,A:2,D:2,G:0,B:0,HighE:0}, 6:{A:2,D:3,G:2,B:3,HighE:1}, 1:{D:0,G:2,B:3,HighE:1} };
+for (const [table, extra] of [[minorGrips, extraMinorGrips], [grips, extraMajorGrips], [acousticMinorGrips, extraMinorGrips],
+  [acousticGrips, extraMajorGrips], [bossaMinorGrips, { ...extraMinorGrips, 2:{A:3,D:2,G:0,B:0,HighE:0}, 6:{LowE:3,A:2,D:3,G:0,B:0,HighE:1} }],
+  [bossaGrips, { ...extraMajorGrips, 2:{LowE:0,A:2,D:0,G:0,B:0,HighE:0} }]])
+  for (const [k, v] of Object.entries(extra)) if (!table[k]) table[k] = v;
 // ---- Akustik · Tenang: compose one song first, then hand roles to instruments ----
 // Seeded random source so the same seed always gives the same song.
 function rng(seed) {
@@ -372,16 +380,16 @@ const styles = [
   // Jazz: swing, walking bass, seventh chords on piano, ride cymbal.
   { name:'Kafe malam', genre:'Jazz',    mood:'Tenang', weight:2, feel:'asli',    bpm:[76,86],   guitar:'petik', piano:'jazz', drum:'jazz', bass:'jalan' },
   { name:'Swing',      genre:'Jazz',    mood:'Ceria',  weight:1, feel:'asli',    bpm:[110,122], guitar:'petik', piano:'jazz', drum:'jazz', bass:'jalan' },
-  { name:'Biru',       genre:'Jazz',    mood:'Melankolis', weight:1, feel:'panjang', bpm:[66,74], guitar:'petik', piano:'jazz', drum:'jazz', bass:'jalan' },
+  { name:'Biru',       genre:'Jazz',    mood:'Melankolis', weight:1, feel:'panjang', bpm:[66,74], guitar:'petik', piano:'jazz', drum:'tipis', bass:'dua' },
   // Bossa nova: nylon guitar pattern, straight eighths, cross-stick clave, jazz harmony and tunes.
   { name:'Pantai Senja', genre:'Bossa', mood:'Tenang', weight:2, feel:'asli', bpm:[100,112], guitar:'bossa', piano:'jazz', drum:'bossa', bass:'bossa' },
   { name:'Pesisir',      genre:'Bossa', mood:'Ceria',  weight:1, feel:'asli', bpm:[118,130], guitar:'bossa', piano:'jazz', drum:'bossa', bass:'bossa' },
   { name:'Saudade',      genre:'Bossa', mood:'Melankolis', weight:1, feel:'panjang', bpm:[96,106], guitar:'bossa', piano:'jazz', drum:'bossa', bass:'bossa' },
   // Sedih: sad tunes, very slow, sparse, quiet drums (none in Akustik), always slowing at the end.
   { name:'Pilu',         genre:'Akustik', mood:'Sedih', weight:1, feel:'panjang', bpm:[50,56], guitar:'petik', piano:'blok', drum:'tanpa', bass:'tahan' },
-  { name:'Kamar Sepi',   genre:'Lo-fi',   mood:'Sedih', weight:1, feel:'panjang', bpm:[58,64], guitar:'petik', piano:'jazz', drum:'lofi', bass:'tahan' },
+  { name:'Kamar Sepi',   genre:'Lo-fi',   mood:'Sedih', weight:1, feel:'panjang', bpm:[58,64], guitar:'petik', piano:'jazz', drum:'tipis', bass:'tahan' },
   { name:'Air Mata',     genre:'Pop',     mood:'Sedih', weight:1, feel:'panjang', bpm:[54,60], guitar:'petik', piano:'pecah', drum:'balada', bass:'tahan' },
-  { name:'Malam Kelabu', genre:'Jazz',    mood:'Sedih', weight:1, feel:'panjang', bpm:[52,60], guitar:'petik', piano:'jazz', drum:'jazz', bass:'jalan' },
+  { name:'Malam Kelabu', genre:'Jazz',    mood:'Sedih', weight:1, feel:'panjang', bpm:[54,62], guitar:'petik', piano:'jazz', drum:'tanpa', bass:'tahan' },
   { name:'Perpisahan',   genre:'Bossa',   mood:'Sedih', weight:1, feel:'panjang', bpm:[84,92], guitar:'bossa', piano:'jazz', drum:'bossa', bass:'bossa' },
   // Melankolis: minor kits, slower, softer.
   { name:'Sendu',      genre:'Akustik', mood:'Melankolis', weight:2, feel:'panjang', bpm:[60,66], guitar:'petik', piano:'blok',  drum:'tipis' },
@@ -564,6 +572,183 @@ function planSong(bars) {
   if ((song.genre === 'Jazz' || song.genre === 'Bossa') && !song.minor)
     harmony.forEach((h, i) => { if (h.root === 3 && harmony[i + 1]?.root === 4) { h.root = 1; h.two = true; } });
   return { harmony, melody, kitNames: used };
+}
+
+
+// ---- Komposisi (Womi, 2026-11-27): songs written like a composer, not stitched from random kits ----
+// Rules taken from the hand-written pieces (Sedih 01/02, Jazz Sedih) that sounded like real songs:
+//   * form in 8-bar periods: intro – A (ends on V, a question) – A' (answers home) – B (climbs, the
+//     climax sits in its 5th bar, ends on V) – A'' (home) – outro (motif fragment, V, home).
+//     Long songs add a quiet pause, a second theme (C / C'), and return to B and A.
+//   * ONE motif (one bar) + its answer (one bar) carry the whole tune: stated, sequenced a step
+//     lower, lifted for the climax, ornamented on the return.
+//   * notes on beats 1 and 3, and long notes, are chord tones; the rest move mostly by step.
+//   * breathing rests at the ends of phrases; slow moods use long notes, cheerful ones run.
+//   * harmony from hand-picked progressions per mode (minor: i–VI–III–VII, i–iv–VII–III–VI–ii°–V…;
+//     major: I–V–vi–IV, vi–IV–I–V…); Jazz/Bossa in major turn IV–V into ii7–V.
+// Same data as planSong (harmony[], melody[] in eighths and scale degrees), so every
+// arrangement, genre pattern, MIDI band and mastering step works unchanged.
+const komposisiBanks = {
+  minor: {
+    A: [[0,5,2,6,0,3,4,4],[0,3,6,2,5,1,4,4],[0,6,5,6,0,3,4,4],[0,2,3,0,5,3,4,4],[0,5,3,4,0,5,1,4],[0,3,0,5,2,3,4,4]],
+    B: [[5,2,3,0,5,6,4,4],[3,0,5,2,3,1,4,4],[5,6,2,5,3,6,4,4],[2,6,5,3,5,3,4,4]],
+    intro: [[0,0,5,4],[0,5,3,4],[0,3,0,4]],
+    outro: [[5,3,4,0],[3,4,4,0],[5,4,4,0]]
+  },
+  major: {
+    A: [[0,4,5,3,0,4,1,4],[5,3,0,4,5,3,1,4],[0,2,5,3,0,2,3,4],[0,5,3,4,0,5,1,4],[3,0,4,5,3,0,1,4],[0,3,4,0,5,3,1,4]],
+    B: [[3,4,2,5,3,4,1,4],[5,2,3,0,5,2,1,4],[5,3,0,4,5,3,1,4],[3,2,5,0,3,1,4,4]],
+    intro: [[0,3,0,4],[5,3,0,4],[0,5,3,4]],
+    outro: [[3,3,4,0],[3,4,4,0],[5,3,4,0]]
+  }
+};
+// Motif and answer rhythms in eighths: [onset, length, 'rest'?]. Slow = Sedih/Melankolis/Tenang,
+// lively = Ceria; swing = Jazz/Bossa (anticipations held over the beat).
+const komposisiRhythms = {
+  slow: { motif: [[[0,2],[2,3],[5,1],[6,2]], [[0,3],[3,1],[4,2],[6,2]], [[0,1],[1,1],[2,4],[6,2]], [[0,4],[4,2],[6,2]],
+                  [[0,1,'rest'],[1,1],[2,2],[4,4]], [[0,2],[2,2],[4,3],[7,1]]],
+          answer: [[[0,3],[3,1],[4,4]], [[0,6],[6,2,'rest']], [[0,2],[2,2],[4,4]], [[0,4],[4,4]], [[0,3],[3,3],[6,2,'rest']]] },
+  lively: { motif: [[[0,1],[1,1],[2,2],[4,1],[5,1],[6,2]], [[0,2],[2,1],[3,1],[4,2],[6,2]], [[0,1],[1,1],[2,1],[3,1],[4,4]],
+                    [[0,3],[3,1],[4,1],[5,1],[6,2]]],
+            answer: [[[0,2],[2,2],[4,4]], [[0,1],[1,1],[2,2],[4,2],[6,2,'rest']], [[0,3],[3,1],[4,4]]] },
+  swing: { motif: [[[0,3],[3,3],[6,2]], [[0,1],[1,2],[3,3],[6,2]], [[0,2],[2,1],[3,3],[6,2,'rest']], [[1,2],[3,3],[6,2]]],
+           answer: [[[0,3],[3,1],[4,4]], [[0,2],[2,1],[3,5]], [[0,6],[6,2,'rest']]] }
+};
+const komposisiContours = { motif: [[0,5,4,3],[0,-1,-2,-1],[0,2,1,0],[0,4,3,2],[0,1,2,-1],[0,3,2,1],[0,-2,-1,-3],[0,2,4,3]],
+  answer: [[0,-1,-2],[0,1,-1],[0,-1,0],[0,-2,-1],[0,-1,-3]] };
+// Phrase plan: [section name used by the arrangements, role]. Roles: q1/q2 = first period
+// (question), h1/h2 = answering period, b1/b2 = middle with the climax, o = outro.
+function komposisiForm(phrases, withIntro) {
+  const form = withIntro ? [['intro','i']] : [];
+  const avail = phrases - form.length - 1;
+  // core song: question period, answer period, middle with the climax, return
+  const core = [['A','q1'],['A','q2'],['Av','h1'],['Av','h2'],['B','b1'],['B2','b2'],['A','h1'],['A','h2']];
+  const short = { 0:[], 1:[['A','h2']], 2:[['A','q1'],['Av','h2']], 3:[['A','q1'],['A','q2'],['Av','h2']],
+    4:[['A','q1'],['A','q2'],['Av','h1'],['Av','h2']], 5:[['A','q1'],['A','q2'],['B','b1'],['B2','b2'],['Av','h2']],
+    6:[['A','q1'],['A','q2'],['B','b1'],['B2','b2'],['Av','h1'],['Av','h2']],
+    7:[['A','q1'],['A','q2'],['Av','h1'],['Av','h2'],['B','b1'],['B2','b2'],['A','h2']] };
+  if (avail < 8) return form.concat(short[Math.max(0, avail)], [['outro','o']]);
+  form.push(...core);
+  // longer songs: a second theme and a return of the middle, in whole periods; an odd phrase
+  // becomes a quiet pause before the next block
+  const blocks = [[['C','c1'],['C','c2'],['Cv','d1'],['Cv','d2']], [['B','b1'],['B2','b2'],['Av','h1'],['Av','h2']]];
+  let r = avail - 8;
+  if (r % 2) { form.push(['pause','p']); r--; }
+  // whole blocks, the last one always the middle + return, so the song ends on the main tune
+  const nb = Math.floor(r / 4);
+  for (let k = 0; k < nb; k++) form.push(...blocks[(nb - 1 - k) % 2 === 0 ? 1 : 0]);
+  if (r % 4) form.push(['Av','h1'],['Av','h2']);
+  form.push(['outro','o']);
+  return form;
+}
+function composeSong(bars) {
+  const r = rng(song.seed ^ 0xC0FFEE);
+  const choose = list => list[Math.floor(r() * list.length)];
+  const mode = song.minor ? 'minor' : 'major';
+  const bank = komposisiBanks[mode];
+  const jazzy = song.genre === 'Jazz' || song.genre === 'Bossa';
+  const tempo = 30 / song.step;
+  const rhythmSet = jazzy && tempo >= 70 ? 'swing' : song.mood === 'Ceria' ? 'lively' : 'slow';
+  const R = komposisiRhythms[rhythmSet];
+  const theme = () => {
+    const cells = (rh, contour) => { const c = [...contour]; return rh.map(([on, len, rest], i) => {
+      while (c.length <= i) c.push(c[c.length - 1] - 1); return [on, len, rest ? null : c[i]]; }); };
+    return { motif: cells(choose(R.motif), choose(komposisiContours.motif)), answer: cells(choose(R.answer), choose(komposisiContours.answer)),
+      A: choose(bank.A), B: choose(bank.B), start: choose([2, 4, 0]) };
+  };
+  const t1 = theme(), t2 = theme();
+  if (t2.A === t1.A) t2.A = bank.A[(bank.A.indexOf(t1.A) + 1) % bank.A.length];
+  const intro = choose(bank.intro), outro = choose(bank.outro), climb = choose([2, 3]);
+  const phrases = bars / 4;
+  const form = komposisiForm(phrases, phrases >= 6 && r() < .8);
+  const chordTone = (d, root) => [0, 2, 4].includes(((d - root) % 7 + 7) % 7);
+  const snap = (d, root) => { for (const o of [0, -1, 1, -2, 2]) if (chordTone(d + o, root)) return d + o; return d; };
+  const lo = 0;
+  // place a cell starting on scale step s over a chord; strong notes (beats 1 and 3, or long) are chord tones
+  let prevNote = null;
+  const realise = (cell, s, root, hi) => {
+    const place = s => cell.map(([on, len, off]) => {
+      if (off === null) return [on, len, null];
+      let d = Math.max(lo, Math.min(hi, s + off));
+      if (on % 4 === 0 || len >= 3) d = snap(d, root);
+      return [on, len, Math.max(lo, Math.min(hi + 1, d))];
+    });
+    let out = place(s);
+    // a big jump into the bar is smoothed by moving the whole cell an octave, if that fits
+    const first = out.find(n => n[2] !== null);
+    if (first && prevNote !== null && Math.abs(first[2] - prevNote) > 4) {
+      const alt = place(s + (first[2] > prevNote ? -7 : 7)), f2 = alt.find(n => n[2] !== null);
+      if (Math.abs(f2[2] - prevNote) < Math.abs(first[2] - prevNote) && alt.every(n => n[2] === null || (n[2] >= lo && n[2] <= hi + 1))) out = alt;
+    }
+    const lastN = out.filter(n => n[2] !== null).at(-1);
+    if (lastN) prevNote = lastN[2];
+    return out;
+  };
+  const harmony = [], melody = [];
+  let period = -1, firstTune = true, middles = 0;
+  form.forEach(([section, role], phrase) => {
+    const th = section === 'C' || section === 'Cv' ? t2 : t1;
+    const s0 = th.start;
+    const prog = role === 'i' ? intro : role === 'o' ? outro
+      : role === 'q1' || role === 'h1' || role === 'c1' || role === 'd1' ? th.A.slice(0, 4)
+      : role === 'q2' || role === 'c2' ? th.A.slice(4, 8)
+      : role === 'h2' || role === 'd2' || role === 'p' ? [...th.A.slice(4, 6), 4, 0]
+      : role === 'b1' ? th.B.slice(0, 4) : th.B.slice(4, 8);
+    if (role.endsWith('1') || role === 'i' || role === 'o') period++;
+    // each return of the middle climbs one step higher, so the last one is the real climax
+    if (role === 'b1') middles++;
+    const lift = role.startsWith('b') ? Math.min(2, middles - 1) : 0;
+    const hi = role.startsWith('b') ? 11 + lift : role === 'o' ? 7 : 9;
+    const bars4 = [];
+    if (role === 'i') bars4.push([], [], [], []);
+    else if (role === 'q1' || role === 'h1' || role === 'c1' || role === 'd1' || role === 'b1') {
+      const st = role === 'b1' ? [s0 + climb + lift, s0 + climb + 1 + lift] : [s0, s0 - 1];
+      for (let k = 0; k < 2; k++) {
+        let m = realise(th.motif, st[k], prog[2 * k], hi);
+        // the return of the tune gets a small turn on its third note
+        if ((role === 'h1' || role === 'd1') && k === 0 && m[2] && m[2][2] !== null && m[2][1] >= 2)
+          m = [...m.slice(0, 2), [m[2][0], 1, m[2][2] + 1], [m[2][0] + 1, m[2][1] - 1, m[2][2]], ...m.slice(3)];
+        const last = st[k] + (th.motif.filter(n => n[2] !== null).at(-1)?.[2] ?? 0);
+        bars4.push(m, realise(th.answer, last, prog[2 * k + 1], hi));
+      }
+    } else {
+      // second half of a period: motif lifted (climax in b2), then an approach and a long cadence note
+      const top = role === 'b2' ? s0 + climb + 3 + lift : s0 + (role === 'o' ? -1 : 1);
+      const end = role === 'q2' || role === 'c2' || role === 'b2' ? choose(mode === 'major' ? [1, 4, 6] : [1, 4])
+        : role === 'o' && (song.mood === 'Sedih' || song.mood === 'Melankolis') ? 0 : choose([0, 7]);
+      const m = realise(th.motif, top, prog[0], hi);
+      bars4.push(m, realise(th.answer, top + (th.motif.filter(n => n[2] !== null).at(-1)?.[2] ?? 0), prog[1], hi));
+      if (role === 'o') {
+        // the last phrase walks down to the home note (from high up: 5-4-2 over V, then home)
+        const down = end === 0 && prevNote !== null && prevNote >= 5;
+        bars4.push(down ? [[0, 2, 4], [2, 2, 3], [4, 4, 1]] : [[0, 4, snap(end === 0 ? 2 : 6, 4)], [4, 4, snap(end === 0 ? 1 : 8, 4)]], [[0, 8, end]]);
+        prevNote = end;
+      } else {
+        // approach in the octave closest to where the tune is, then the cadence note next to it
+        let st = end + 2;
+        while (prevNote !== null && st + 7 <= hi && Math.abs(st + 7 - prevNote) < Math.abs(st - prevNote)) st += 7;
+        const appr = realise([[0, 2, -2], [2, 2, -1], [4, 4, 0]], st, prog[2], hi);
+        const lastA = appr.filter(n => n[2] !== null).at(-1)[2];
+        const e = [end, end + 7].filter(x => x <= hi + 1).reduce((a, x) => Math.abs(x - lastA) < Math.abs(a - lastA) ? x : a);
+        bars4.push(appr, [[0, 6, e], [6, 2, null]]);
+        prevNote = e;
+      }
+    }
+    for (let pos = 0; pos < 4; pos++) {
+      let energy = section === 'B' || section === 'B2' || section === 'Cv' ? 2 : 1;
+      if (section === 'intro' || section === 'pause') energy = 0;
+      if (firstTune && section !== 'intro') energy = 0;
+      harmony.push({ root: prog[pos], phrase, pos, section, energy, turn: Math.max(0, period),
+        shift: 0, rest: section === 'C' && vary('rehat'), high: false,
+        lift: energy === 2, cadence: role === 'o' && pos === 2, final: phrase === form.length - 1 && pos === 3, climax: role === 'b2' && pos === 0 });
+      melody.push(bars4[pos]);
+    }
+    if (section !== 'intro') firstTune = false;
+  });
+  if (jazzy && !song.minor)
+    harmony.forEach((h, i) => { if (h.root === 3 && harmony[i + 1]?.root === 4) { h.root = 1; h.two = true; } });
+  song.komposisi = { motif: t1.motif, tema2: t2.motif, bentuk: form.map(f => f[0]).join(' '), irama: rhythmSet };
+  return { harmony, melody, kitNames: ['Komposisi'] };
 }
 
 // ---- Klasik: a Bach chorale arranged for the chosen instruments ----
@@ -779,7 +964,7 @@ function arrange(name, variant = 0) {
         const soft = role.melody === 'Piano' ? .8 : 1;
         const jazzy = song.genre === 'Jazz' || song.genre === 'Bossa';
         // The ninth is left off v in minor keys (it would be a flat ninth).
-        const ninth = !(song.minor && root === 4);
+        const ninth = !(song.minor ? [1, 4].includes(root) : [2, 6].includes(root));
         const notes = jazzy && final ? (song.minor ? [2, 4, 6, 8] : [2, 4, 5, 8])
           : jazzy && role.bass ? [root + 2, root + 4, root + 6, ...(ninth ? [root + 8] : [])]
           : role.bass ? [root + 2, root + 4, root + 6] : [root, root + 4, root + 6, root + 9];
@@ -1018,6 +1203,11 @@ function articulateGuitar(events) {
     // Firm plucks only: the softest recordings sounded like a weak fretting hand.
     // Melody notes use the same recordings as the accompaniment so the guitar keeps one voice.
     const layer = event.boost > 1 || event.level < .55 ? 2 : 3;
+    // A note below the guitar's range (possible with the composer's lower keys) moves up an octave;
+    // a note below its fixed string is played on any string that can reach it.
+    const lowest = Math.min(...Object.values(tuning));
+    while (event.note < lowest) event.note += 12;
+    if (event.string && tuning[event.string] > event.note) delete event.string;
     const playable = samples.filter(s => tuning[s.string]<=event.note && (!event.string || s.string===event.string));
     // Low strings were only recorded soft and medium, so take the firmest they have.
     const firmest = Math.min(layer, ...playable.map(s=>s.layer).filter((v,i,a)=>a.indexOf(v)===i).sort().slice(-1));
@@ -1077,7 +1267,8 @@ function shapeDynamics(name, events) {
   }
 }
 function pattern(name) {
-  const events = compose(name);
+  // A pitched note that came out undefined (a chord shape without that string) is dropped, never played.
+  const events = compose(name).filter(e => name === 'Drum' || Number.isFinite(e.note));
   if (song.harmony) shapeDynamics(name, events);
   // Sedih: drums about 3 dB softer than in the other moods.
   if (name === 'Drum' && song.mood === 'Sedih' && song.harmony) for (const e of events) e.boost = (e.boost ?? 1) * .7;
@@ -1228,11 +1419,11 @@ function play() {
 }
 // Build the song for the chosen settings. Akustik · Tenang is fully seeded:
 // the same seed gives the same chords and melody for any set of instruments.
-function newSong({genre,mood,duration,names,seed,source='kit',onlyKit=null,pianoMelody=false,force={},vary={}}) {
+function newSong({genre,mood,duration,names,seed,source='kit',onlyKit=null,pianoMelody=false,force={},vary={},engine='komposisi'}) {
   // force.kits: tune names saved in a project (main, middle, main2, middle2).
   const bpm=({Tenang:78,Ceria:112,Melankolis:68,Sedih:56})[mood]+({'Lo-fi':-6,Akustik:0,Pop:10})[genre];
   const r=rng(seed), choose=list=>list[Math.floor(r()*list.length)];
-  song={genre,mood,seed,duration,requested:duration,source,onlyKit,pianoMelody,vary,kitChoice:force.kits,dynamics:force.dynamics ?? dynamicsDefault,step:30/bpm,minor:mood==='Melankolis'||mood==='Sedih',
+  song={genre,mood,seed,duration,requested:duration,source,onlyKit,pianoMelody,vary,engine:onlyKit?'kit':engine,kitChoice:force.kits,dynamics:force.dynamics ?? dynamicsDefault,step:30/bpm,minor:mood==='Melankolis'||mood==='Sedih',
     key:choose([60,62,65,67]),chords:choose([[0,3,5,4],[0,5,3,4],[0,4,5,3]]),
     tracks:names.map(name=>({name,events:[],volume:.7,muted:false,pan:placement[name]?.pan ?? 0})),harmony:null,variants:{},
     mastering:{targetLoudness:-14,room:.8,studioMix:true}};
@@ -1289,6 +1480,11 @@ function newSong({genre,mood,duration,names,seed,source='kit',onlyKit=null,piano
     song.ritard=force.ritard ?? (mood==='Sedih' || slowDraw);
     // Minor keys chosen so the A-minor guitar shapes need a capo of 0 to 5.
     if (song.minor) song.key=pick2([57,59,60,62]);
+    if (song.engine!=='kit') {
+      // More keys for composed songs (guitar shapes still fit with capo 0-5); never the key to avoid.
+      const rk=rng(seed^0x6b6579), keys=(song.minor?[57,58,59,60,61,62]:[60,62,63,65,67]).filter(k=>k!==force.avoidKey);
+      song.key=keys[Math.floor(rk()*keys.length)];
+    }
     if (force.key) song.key=force.key;
   }
   const raw=song.duration/(8*song.step);
@@ -1298,7 +1494,8 @@ function newSong({genre,mood,duration,names,seed,source='kit',onlyKit=null,piano
   else song.step=song.duration/(8*bars);
   song.bars=bars;
   if (acoustic) {
-    Object.assign(song,planSong(bars));
+    // Komposisi (default) writes the song from one motif in a composed form; 'kit' is the older kit-stitching planner.
+    Object.assign(song,song.engine==='kit'?planSong(bars):composeSong(bars));
     song.variants={};
   }
   for (const track of song.tracks) track.events=pattern(track.name);
@@ -1316,7 +1513,7 @@ function projectOf(s) {
     volume:Object.fromEntries(s.tracks.map(t => [t.name, Math.round(t.volume * 100)])),
     pan:Object.fromEntries(s.tracks.map(t => [t.name, Math.round(t.pan * 100)])),
     bisu:s.tracks.filter(t => t.muted).map(t => t.name),
-    mastering:s.mastering,
+    mastering:s.mastering, mesin:s.engine ?? 'kit',
     ...(s.kitChoice ? { melodi_kit:s.kitChoice } : {}), dinamika:s.dynamics,
     ...(s.formChoice ? { bentuk:s.formChoice } : {}) };
 }
@@ -1334,8 +1531,10 @@ async function songFromProject(p) {
   if (p.gaya) force.style = p.gaya;
   newSong({ genre:p.genre ?? 'Akustik', mood:p.mood ?? 'Tenang', duration:Number(p.durasi ?? 60), names, seed:Number(p.seed ?? 0),
     source:p.sumber ?? 'kit', pianoMelody:p.melodi === 'piano',
+    // Projects saved before the composer existed have no 'mesin' and keep the kit planner, so they sound the same.
+    engine:p.mesin === 'komposisi' ? 'komposisi' : 'kit',
     // Projects saved before song shapes varied (they name their tunes but no shape) keep the old one.
-    force:{ ...force, kits:p.melodi_kit, dynamics:p.dinamika, form:p.bentuk ?? (p.melodi_kit ? { template:0, intro:true, lead:0 } : undefined) } });
+    force:{ ...force, avoidKey:p.hindari_kunci, kits:p.melodi_kit, dynamics:p.dinamika, form:p.bentuk ?? (p.melodi_kit ? { template:0, intro:true, lead:0 } : undefined) } });
   const notes = [];
   if (!song.parts && (Object.keys(p.pola ?? {}).length || Object.keys(p.variasi ?? {}).length || p.gaya))
     notes.push('Gaya, pola, dan variasi hanya berlaku untuk sumber kit; diabaikan.');
@@ -1591,8 +1790,22 @@ function midiFile() {
     const program = band?.programs[name] ?? setup.program;
     if (program !== undefined) out.push([0, 0, [0xc0 | ch, program]]);
     out.push([0, 0, [0xb0 | ch, 7, setup.volume]], [0, 0, [0xb0 | ch, 10, setup.pan]]);
-    for (const n of list) {
-      if (n.note < 0 || n.note > 127) continue;
+    // Same pitch struck twice within 0.15 beat (e.g. tune and chord on one note) becomes one note,
+    // and a repeated pitch always ends before it is struck again; otherwise the earlier note-off
+    // cuts the new note short in a DAW (heard as dropouts).
+    const beat = song.step * 2, notes = [];
+    for (const n of list.filter(n => n.note >= 0 && n.note <= 127).sort((a, b) => a.at - b.at)) {
+      const twin = notes.find(m => m.note === n.note && Math.abs(m.at - n.at) < .15 * beat);
+      if (twin) { const end = Math.max(twin.at + twin.seconds, n.at + n.seconds); twin.at = Math.min(twin.at, n.at); twin.seconds = end - twin.at; twin.velocity = Math.max(twin.velocity, n.velocity); }
+      else notes.push({ ...n });
+    }
+    const nextAt = {};
+    for (let i = notes.length - 1; i >= 0; i--) {
+      const n = notes[i];
+      if (nextAt[n.note] !== undefined && n.at + n.seconds > nextAt[n.note] - .01 * beat) n.seconds = Math.max(.05 * beat, nextAt[n.note] - .01 * beat - n.at);
+      nextAt[n.note] = n.at;
+    }
+    for (const n of notes) {
       const start = tick(n.at), velocity = Math.max(15, Math.min(127, n.velocity));
       out.push([start, 1, [0x90 | ch, n.note, velocity]], [start + Math.max(1, tick(n.seconds)), 0, [0x80 | ch, n.note, 0]]);
     }
@@ -1643,7 +1856,7 @@ el('open').onchange = async () => {
 
 let versions=[];
 function describe(s) {
-  const what = s.chorale ? 'Korale Bach #'+[...new Set(s.passes.map(p=>p.id))].join(', #') : s.kitNames ? 'Gaya '+s.style.name+' · Kit '+s.kitNames.join(' + ') : s.genre+' · '+s.mood;
+  const what = s.chorale ? 'Korale Bach #'+[...new Set(s.passes.map(p=>p.id))].join(', #') : s.engine!=='kit' && s.komposisi ? 'Gaya '+s.style.name+' · Komposisi · '+['C','C#','D','Eb','E','F','F#','G','Ab','A','Bb','B'][s.key%12]+(s.minor?' minor':' mayor') : s.kitNames ? 'Gaya '+s.style.name+' · Kit '+s.kitNames.join(' + ') : s.genre+' · '+s.mood;
   return what+' · '+Math.round(30/s.step)+' BPM · seed '+s.seed;
 }
 function showVersion(i) {

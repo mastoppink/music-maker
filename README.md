@@ -53,7 +53,20 @@ Gaya lagu, bentuk lagu, dan pola per instrumen berlaku untuk **Kit orisinal** di
 
 **Tenang** dan **Ceria** memakai 20 melodi mayor tulisan tangan. **Melankolis** memakai 12 melodi minor. **Sedih** memakai 6 melodi minor khusus (garis turun, nada panjang, berakhir rendah) dengan tempo sangat pelan, drum paling lembut (Akustik tanpa drum), dan penutup yang selalu melambat. Jazz dan Bossa memakai 8 melodi jazz tersendiri (juga untuk mood Sedih). Setiap mood dan genre punya beberapa **gaya** (tempo, irama melodi, pola iringan), dan setiap lagu memilih satu gaya. Daftar lengkapnya bisa dilihat dengan `node cli/music-maker.js daftar`.
 
-### Bentuk lagu
+### Mesin komposisi (bawaan sejak 2026-11-27)
+
+Lagu sekarang **ditulis seperti komposer**, bukan disambung dari potongan kit secara acak:
+
+- **Satu motif** (1 birama) dan **jawabannya** (1 birama) membawa seluruh lagu: diulang, digeser satu nada lebih rendah (sekuens), dinaikkan untuk klimaks, dan diberi hiasan kecil saat kembali.
+- **Bentuk lagu** dalam periode 8 birama: pembuka – A (berakhir menggantung di V, seperti *pertanyaan*) – A′ (*menjawab*, pulang ke nada dasar) – B (naik, **klimaks** di tengahnya) – A″ – penutup (potongan motif, V, pulang, melambat). Lagu panjang menambah bagian jeda, tema kedua (C), lalu kembali ke B dan A; setiap B berikutnya naik satu nada lagi supaya klimaks terakhir paling tinggi.
+- Nada di ketukan 1 dan 3 serta nada panjang selalu **nada akor**; sisanya kebanyakan **melangkah** (rata-rata 65–78% langkah, dulu 20–49%), ada napas di akhir frasa.
+- **Harmoni** dari progresi pilihan per tangga nada (minor: i–VI–III–VII, i–iv–VII–III, …; mayor: I–V–vi–IV, vi–IV–I–V, …). Jazz/Bossa mayor mengubah IV–V menjadi ii7–V, piano jazz memakai voicing tanpa akar dengan nada 9 (kecuali pada akor yang akan bentrok).
+- Tempo pelan tidak lagi memakai bass berjalan atau hi-hat sibuk: gaya **Malam Kelabu** (Jazz Sedih) kini tanpa drum dengan bass panjang, **Biru** (Jazz Melankolis) drum tipis dengan bass dua nada, **Kamar Sepi** (Lo-fi Sedih) drum tipis.
+- Nada dasar lebih beragam (minor: A–D termasuk Bb dan C#; mayor: C, D, Eb, F, G). Seed berbeda = motif, irama, progresi, dan nada dasar berbeda.
+
+Cara lama tetap ada: `--mesin kit`. File proyek lama (tanpa `mesin`) otomatis memakai cara lama, jadi bunyinya tetap sama. Untuk memeriksa angka-angka komposisi semua mood × genre: `node studio/cek-komposisi.js --seeds 1,2,3`.
+
+### Bentuk lagu (mesin kit)
 
 Lagu 3 menit ke atas punya bagian-bagian: pembuka, melodi utama, bagian tengah yang lebih penuh, melodi kedua (di Jazz: solo), bagian jeda yang tipis, lalu penutup. Pola iringan berganti antarbagian, drum sesekali istirahat, dan nada dasar naik setelah bagian jeda, supaya lagu panjang tidak monoton.
 
@@ -76,32 +89,44 @@ CLI menjalankan aplikasi di Edge atau Chrome yang sudah ada di komputer tanpa me
 
 ```bash
 node cli/music-maker.js buat [opsi]       # buat lagu dan simpan sebagai WAV
-node cli/music-maker.js rangkaian [opsi]  # sambung banyak lagu menjadi satu file 30–60 menit
+node cli/music-maker.js rangkaian [opsi]  # sambung banyak lagu menjadi satu file, sampai 3 jam
 node cli/music-maker.js master <file...>  # atur volume file audio (misalnya hasil DAW) ke standar YouTube
 node cli/music-maker.js daftar         # tampilkan mood, genre, gaya, pola, dan jalur MIDI per genre
 node cli/music-maker.js bantuan        # tampilkan semua opsi
 ```
 
-### Rangkaian panjang (30–60 menit)
+### Rangkaian panjang (sampai 3 jam)
 
 ```bash
 node cli/music-maker.js rangkaian --genre Lo-fi --menit 60
+# 3 jam, bergantian tiga kombinasi, piano + string + bass, dengan MP3
+node cli/music-maker.js rangkaian --menit 180 --campur Sedih/Akustik,Melankolis/Akustik,Sedih/Jazz \
+  --instrumen Piano,String,Bass --melodi piano --mp3 --keluar hasil
 ```
 
-Menyambung banyak lagu berbeda (seed berurutan) menjadi satu WAV panjang. Setiap lagu di-master sendiri supaya kerasnya rata, lalu ekornya menyatu dengan awal lagu berikutnya. Opsi tambahan:
+Menyambung banyak lagu berbeda menjadi satu file panjang. Cara kerjanya hemat memori (aman untuk VPS 4 GB):
+
+1. Lagu dibuat **satu per satu** dan disimpan sebagai WAV sendiri di folder `<nama>-lagu/`. Kalau proses terputus, **jalankan perintah yang sama lagi**: lagu yang sudah jadi dilewati.
+2. Lagu disambung langsung di disk: ekor lagu memudar sementara lagu berikutnya masuk (crossfade equal-power).
+3. Kekerasan seluruh rangkaian diratakan dengan ffmpeg dalam dua tahap (ukur, lalu satu penguatan linear) ke **−14 LUFS**, puncak maksimal **−1,2 dBTP**. Hasil akhir WAV 24-bit (dan MP3 320k dengan `--mp3`).
+
+Setiap lagu punya seed sendiri (berjarak jauh), dan dua lagu berurutan tidak pernah memakai nada dasar yang sama.
 
 | Opsi | Arti | Bawaan |
 |---|---|---|
-| `--menit` | panjang rangkaian | 30 |
+| `--menit` | panjang rangkaian, 1–180 | 30 |
 | `--durasi-lagu` | panjang tiap lagu dalam detik | 180 |
-| `--jeda` | lama peralihan antarlagu dalam detik | 2 |
+| `--jeda` | lama crossfade antarlagu dalam detik | 3 |
+| `--campur` | daftar `Mood/Genre` yang dipakai bergantian | mood dan genre biasa |
+| `--target` | kekerasan akhir (LUFS) | −14 |
+| `--mp3` | simpan juga MP3 320k | tidak |
 
-Opsi `buat` lainnya (mood, genre, gaya, pola, dan sebagainya) berlaku untuk setiap lagu. Dengan `--midi`, MIDI setiap lagu disimpan di folder `<nama-rangkaian>-midi` (`lagu-01-seed….mid`, dan seterusnya). Selain WAV, rangkaian menyimpan:
+Opsi `buat` lainnya (instrumen, gaya, pola, dan sebagainya) berlaku untuk setiap lagu. Dengan `--midi`, MIDI setiap lagu disimpan di samping WAV-nya di `<nama>-lagu/`. Selain audio, rangkaian menyimpan:
 
 - `.txt`: daftar lagu dengan waktu mulai, dalam format bab YouTube. Tempel langsung ke deskripsi video.
-- `.json`: pengaturan dan seed setiap lagu.
+- `.json`: pengaturan, seed, dan deskripsi setiap lagu.
 
-Rangkaian 60 menit butuh beberapa menit untuk dibuat, dan WAV-nya sekitar 600 MB. Karena ukurannya, rangkaian hanya tersedia di CLI, tidak di aplikasi web.
+Rangkaian 3 jam menghasilkan WAV 24-bit sekitar 2,9 GB, ditambah lagu satu per satu sekitar 1,9 GB (boleh dihapus setelah selesai). Butuh ffmpeg untuk meratakan kekerasan.
 
 ### Opsi `buat`
 
@@ -236,7 +261,8 @@ Sebelum mengunggah ke YouTube, periksa juga kebijakan monetisasi terbaru, teruta
 | File | Isi |
 |---|---|
 | `index.html` | tampilan aplikasi web |
-| `studio.js` | mesin musik: kit, gaya, bentuk lagu, pola instrumen, mix, dan mastering |
+| `studio.js` | mesin musik: komposisi, kit, gaya, bentuk lagu, pola instrumen, mix, dan mastering |
+| `studio/cek-komposisi.js`, `studio/cek_audio.py` | alat ukur: angka komposisi per mood × genre, dan cek audio (LUFS, LRA, klik, tumpang-tindih MIDI) |
 | `classics.js` | 24 korale J.S. Bach |
 | `samples.js` | rekaman instrumen (CC0), ditanam sebagai base64: piano, gitar nilon, kontrabas, drum (kick, snare, rim, shaker, hi-hat), dan string |
 | `cli/music-maker.js` | versi baris perintah |
