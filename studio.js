@@ -4,8 +4,7 @@ let ctx, song, timer, start, position = 0, next = 0;
 const pick = items => items[Math.floor(Math.random()*items.length)];
 for (const name of instruments) {
   const label = document.createElement('label');
-  // String is new and optional, so existing songs keep their sound unless it is ticked.
-  label.innerHTML = '<input type="checkbox" '+(name==='String'?'':'checked')+' value="'+name+'"> '+name;
+  label.innerHTML = '<input type="checkbox" checked value="'+name+'"> '+name;
   el('choices').append(label);
 }
 
@@ -2003,7 +2002,6 @@ el('export').onclick=async()=>{
   } catch {el('message').textContent='Ekspor gagal. Coba ulangi atau pilih durasi lebih pendek.'}
   finally {button.disabled=false}
 };
-
 
 
 

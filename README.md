@@ -24,7 +24,7 @@ Keduanya memakai mesin musik yang sama (`studio.js`), jadi pengaturan yang sama 
 
 ### Instrumen
 
-Piano, Gitar, Bass, dan Drum tercentang secara bawaan. **String** (biola, viola, dan cello yang menahan akor dengan lembut) bisa ditambahkan dengan mencentangnya, atau di CLI dengan `--instrumen Piano,Gitar,Bass,Drum,String`.
+Piano, Gitar, Bass, Drum, dan **String** (biola, viola, dan cello yang menahan akor dengan lembut) tercentang secara bawaan di aplikasi web. Instrumen mana pun dapat dinonaktifkan dengan menghilangkan centangnya.
 
 ### Pilihan
 
