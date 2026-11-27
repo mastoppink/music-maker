@@ -1057,7 +1057,7 @@ function articulateGuitar(events) {
 // notes are reached for a little harder; quiet sections sit lower and full ones higher.
 // The tune gets the full shape, accompaniment less, drums least, so the beat stays even.
 // Values in dB. 'sedang' and 'kuat' are the two strengths offered for listening.
-const dynamicsLevels = { tanpa:{ arch:0, reach:0, section:0 }, sedang:{ arch:3, reach:1.5, section:1.5 }, kuat:{ arch:5, reach:2.5, section:2.5 } };
+const dynamicsLevels = { halus:{ arch:1.5, reach:.8, section:.8 }, tanpa:{ arch:0, reach:0, section:0 }, sedang:{ arch:3, reach:1.5, section:1.5 }, kuat:{ arch:5, reach:2.5, section:2.5 } };
 const dynamicsShare = { Piano:.6, Gitar:.6, Bass:.5, String:.8, Drum:.35 };
 function shapeDynamics(name, events) {
   const d = dynamicsLevels[song.dynamics] ?? dynamicsLevels.tanpa;
@@ -1124,7 +1124,10 @@ function voice(track,event,when,audio=ctx,remaining=total()-(when-start)) {
   // Lo-fi: slow pitch drift between notes, like a worn tape.
   if (song.genre === 'Lo-fi' && !drum) source.detune.value += lofi.wobbleCents * Math.sin(2 * Math.PI * .3 * event.step * song.step);
   const release = event.release ?? ({ Piano:.58, Gitar:.07, Bass:.16, Drum:.03, String:.9 })[track.name];
-  const length = Math.min(remaining, sample.buffer.duration/rate,
+  // Strings: loop the sustained middle of the recording so long chords are held to the end.
+  const looped = track.name === 'String' && sample.buffer.duration > 4.5;
+  if (looped) { source.loop = true; source.loopStart = 1.6; source.loopEnd = sample.buffer.duration - 1.5; }
+  const length = Math.min(remaining, looped ? Infinity : sample.buffer.duration/rate,
     event.ring != null ? event.ring + release : drum ? sample.buffer.duration : event.len * song.step + release);
   if (length < .01) return;
   const gain = audio.createGain();
@@ -1790,7 +1793,7 @@ function roomImpulse(audio) {
     const r = rng(1234 + c), data = buffer.getChannelData(c);
     let low = 0;
     for (let i = pre; i < length; i++) {
-      const t = (i - pre) / rate, k = Math.min(.9, .25 + t * .5);
+      const t = (i - pre) / rate, k = Math.min(.7, .15 + t * .35);
       low = low * k + (r() * 2 - 1) * (1 - k);
       data[i] = low * Math.exp(-t * 3.2) * Math.min(1, t / .004);
     }
@@ -1816,8 +1819,8 @@ function crackleBuffer(audio, seconds) {
 // Studio mixing on/off (channel EQ and compression, mix glue). Measured and A/B tested.
 const studioMix = true;
 // Phrasing strength (see dynamicsLevels); chosen by listening.
-const dynamicsDefault = 'sedang';
-const glue = [-24, 1.6, .03, .3];
+const dynamicsDefault = 'halus';
+const glue = [-28, 2.2, .05, .45];
 const lofi = { crackle:.28, popsPerSecond:2, popSize:.09, wobbleCents:3, toneHz:6500 };
 // when/offset: where the crackle starts in the audio clock and how far into the song.
 function masterBus(audio, raw = false, when = 0, offset = 0) {
@@ -1864,12 +1867,12 @@ function masterBus(audio, raw = false, when = 0, offset = 0) {
 //   eq: [type, frequency Hz, gain dB, Q] · comp: [threshold dB, ratio, attack s, release s]
 //   trim: dB to keep the instrument at the same loudness as before processing.
 const channelStrip = {
-  Piano:  { eq:[['highpass',90,0,.7],['peaking',300,-2.5,1],['highshelf',8000,1.5,.7]], trim:0 },
+  Piano:  { eq:[['highpass',90,0,.7],['peaking',300,-2.5,1],['peaking',3200,2,.8],['highshelf',8000,3,.7]], trim:-.6 },
   Gitar:  { eq:[['highpass',110,0,.7],['peaking',250,-3,1],['peaking',3000,2,.8]], trim:-.8 },
   Bass:   { eq:[['highpass',35,0,.7],['peaking',90,2,.9],['peaking',250,-2,1]], comp:[-36,3,.01,.15], trim:-15.3 },
   // No compressor on drums: it flattened the kick against the snare (approved balance).
   Drum:   { eq:[['highpass',40,0,.7]], trim:-1 },
-  String: { eq:[['highpass',120,0,.7],['peaking',350,-2,1],['highshelf',7000,-2,.7]], trim:.3 }
+  String: { eq:[['highpass',120,0,.7],['peaking',350,-2,1],['peaking',3000,1.5,.8],['highshelf',7000,0,.7]], trim:0 }
 };
 function compressor(audio, [threshold, ratio, attack, release], knee = 6) {
   const c = audio.createDynamicsCompressor();
