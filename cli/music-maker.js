@@ -111,7 +111,9 @@ function settingsFrom(opts) {
     pola: opts.pola ? pairs(opts.pola, 'pola') : base.pola ?? {},
     variasi: opts.variasi ? Object.fromEntries(Object.entries(pairs(opts.variasi, 'variasi')).map(([k, v]) => [k, Number(v)])) : base.variasi ?? {},
     volume: opts.volume ? Object.fromEntries(Object.entries(pairs(opts.volume, 'volume')).map(([k, v]) => [k, Number(v)])) : base.volume ?? {},
+    ...(base.pan ? { pan: base.pan } : {}),
     bisu: opts.bisu ? list(opts.bisu) : base.bisu ?? [],
+    ...(base.mastering ? { mastering: base.mastering } : {}),
     // Tune names from a saved project keep the song identical even after new kits are added.
     ...(base.melodi_kit && opts.seed === undefined ? { melodi_kit: base.melodi_kit } : {}),
     ...(base.dinamika ? { dinamika: base.dinamika } : {}),

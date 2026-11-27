@@ -16,11 +16,12 @@ Keduanya memakai mesin musik yang sama (`studio.js`), jadi pengaturan yang sama 
 3. Dengarkan **Versi A** dan **Versi B**, lalu pakai yang Anda suka.
 4. Di bagian **Mix instrumental**, setiap instrumen punya:
    - **Pola**: cara instrumen itu bermain (misalnya gitar petik atau genjreng).
-   - **Volume** dan **Bisukan**.
+   - **Volume**, **Pan** kiri/kanan, dan **Bisukan**.
    - **Buat ulang**: pindah ke variasi lain dari pola itu. Instrumen lain tidak berubah.
-5. Tekan **Unduh WAV** untuk menyimpan hasilnya.
-6. Tekan **Unduh MIDI** untuk menyimpan not lagu (satu jalur per instrumen) yang bisa dibuka di program musik seperti FL Studio, Ableton, atau GarageBand.
-7. Tekan **Simpan proyek** untuk menyimpan pengaturan lagu (`.json`). Dengan **Buka proyek**, lagu itu bisa dibuat persis sama lagi, termasuk pola, variasi, volume, dan instrumen yang dibisukan. Format file proyeknya sama dengan CLI, jadi proyek dari aplikasi bisa dipakai di CLI (`--dari`) dan sebaliknya.
+5. Di bagian **Mixing & mastering**, atur target loudness LUFS, efek ruang, dan EQ/kompresi studio, lalu tekan **Terapkan mastering**. Ruang langsung berubah saat lagu diputar.
+6. Tekan **Unduh WAV** untuk menyimpan hasilnya.
+7. Tekan **Unduh MIDI** untuk menyimpan not lagu (satu jalur per instrumen) yang bisa dibuka di program musik seperti FL Studio, Ableton, atau GarageBand.
+8. Tekan **Simpan proyek** untuk menyimpan pengaturan lagu (`.json`). Dengan **Buka proyek**, lagu itu bisa dibuat persis sama lagi, termasuk pola, variasi, pan, volume, mastering, dan instrumen yang dibisukan. Format file proyeknya sama dengan CLI, jadi proyek dari aplikasi bisa dipakai di CLI (`--dari`) dan sebaliknya.
 
 ### Instrumen
 

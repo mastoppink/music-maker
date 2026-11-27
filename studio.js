@@ -1231,7 +1231,8 @@ function newSong({genre,mood,duration,names,seed,source='kit',onlyKit=null,piano
   const r=rng(seed), choose=list=>list[Math.floor(r()*list.length)];
   song={genre,mood,seed,duration,requested:duration,source,onlyKit,pianoMelody,vary,kitChoice:force.kits,dynamics:force.dynamics ?? dynamicsDefault,step:30/bpm,minor:mood==='Melankolis'||mood==='Sedih',
     key:choose([60,62,65,67]),chords:choose([[0,3,5,4],[0,5,3,4],[0,4,5,3]]),
-    tracks:names.map(name=>({name,events:[],volume:.7,muted:false})),harmony:null,variants:{}};
+    tracks:names.map(name=>({name,events:[],volume:.7,muted:false,pan:placement[name]?.pan ?? 0})),harmony:null,variants:{},
+    mastering:{targetLoudness:-14,room:.8,studioMix:true}};
   if (source==='klasik') {
     // Calm chorale tempo; repeat the piece to fill the chosen length, stretching slightly.
     song.chorale=choose(chorales);
@@ -1310,7 +1311,9 @@ function projectOf(s) {
     pola:s.parts ? Object.fromEntries(Object.entries(s.parts).filter(([n]) => played(n))) : {},
     variasi:s.parts ? Object.fromEntries(Object.keys(s.parts).filter(played).map(n => [n, (s.variants[n] ?? 0) % variationCount[n][s.parts[n]] + 1])) : {},
     volume:Object.fromEntries(s.tracks.map(t => [t.name, Math.round(t.volume * 100)])),
+    pan:Object.fromEntries(s.tracks.map(t => [t.name, Math.round(t.pan * 100)])),
     bisu:s.tracks.filter(t => t.muted).map(t => t.name),
+    mastering:s.mastering,
     ...(s.kitChoice ? { melodi_kit:s.kitChoice } : {}), dinamika:s.dynamics,
     ...(s.formChoice ? { bentuk:s.formChoice } : {}) };
 }
@@ -1337,8 +1340,15 @@ async function songFromProject(p) {
     const v = p.variasi?.[track.name];
     if (v && song.parts?.[track.name]) { song.variants[track.name] = v - 1; track.events = pattern(track.name); }
     if (p.volume?.[track.name] !== undefined) track.volume = p.volume[track.name] / 100;
+    if (p.pan?.[track.name] !== undefined) track.pan = Math.max(-1, Math.min(1, p.pan[track.name] / 100));
     track.muted = (p.bisu ?? []).includes(track.name);
   }
+  const m = p.mastering ?? {};
+  song.mastering = {
+    targetLoudness:Number.isFinite(Number(m.targetLoudness)) ? Math.max(-20, Math.min(-9, Number(m.targetLoudness))) : -14,
+    room:Number.isFinite(Number(m.room)) ? Math.max(0, Math.min(1, Number(m.room))) : .8,
+    studioMix:m.studioMix !== false
+  };
   return { notes };
 }
 // ---- Full jazz band for MIDI (sextet) ----
@@ -1668,11 +1678,13 @@ function render() {
     const name=track.name;
     const row=document.createElement('div');
     row.className='track';
-    row.innerHTML='<strong>'+name+'</strong><label>Volume <input type="range" min="0" max="100"></label><label><input type="checkbox"> Bisukan</label><button>Buat ulang</button>';
-    const [volume,mute]=row.querySelectorAll('input');
+    row.innerHTML='<strong>'+name+'</strong><label>Volume <input class="volume" type="range" min="0" max="100"></label><label>Pan <input class="pan" type="range" min="-100" max="100"></label><label><input class="mute" type="checkbox"> Bisukan</label><button>Buat ulang</button>';
+    const volume=row.querySelector('.volume'), pan=row.querySelector('.pan'), mute=row.querySelector('.mute');
     volume.value=Math.round(track.volume*100); mute.checked=track.muted;
     const mix=()=>{track.volume=volume.value/100;track.muted=mute.checked;if(track.bus) track.bus.gain.setTargetAtTime(track.muted?0:track.volume,ctx.currentTime,.01)};
     volume.oninput=mix; mute.onchange=mix;
+    pan.value=Math.round(track.pan*100);
+    pan.oninput=()=>{track.pan=pan.value/100;if(track.bus?.panNode) track.bus.panNode.pan.setTargetAtTime(track.pan,ctx.currentTime,.01)};
     // Pattern choice for this instrument (kit songs only).
     if (song.parts?.[name]) {
       const label=document.createElement('label');
@@ -1694,8 +1706,40 @@ function render() {
     };
     el('tracks').append(row);
   }
+  renderMastering();
   el('studio').hidden=false;
 }
+function renderMastering() {
+  const mastering=song.mastering;
+  el('targetLoudness').value=mastering.targetLoudness;
+  el('targetLoudnessValue').textContent=mastering.targetLoudness+' LUFS';
+  el('roomAmount').value=Math.round(mastering.room*100);
+  el('roomAmountValue').textContent=el('roomAmount').value+'%';
+  el('studioMix').checked=mastering.studioMix;
+}
+el('targetLoudness').oninput=()=>{
+  song.mastering.targetLoudness=Number(el('targetLoudness').value);
+  el('targetLoudnessValue').textContent=el('targetLoudness').value+' LUFS';
+};
+el('roomAmount').oninput=()=>{
+  song.mastering.room=Number(el('roomAmount').value)/100;
+  el('roomAmountValue').textContent=el('roomAmount').value+'%';
+  if(song.master?.roomLevel) song.master.roomLevel.gain.setTargetAtTime(song.mastering.room,ctx.currentTime,.01);
+};
+el('studioMix').onchange=()=>{song.mastering.studioMix=el('studioMix').checked};
+el('applyMastering').onclick=async()=>{
+  if(!song) return;
+  const button=el('applyMastering'), wasPlaying=!!timer, at=wasPlaying?Math.max(0,ctx.currentTime-start):position;
+  button.disabled=true;
+  el('message').textContent='Menghitung mastering…';
+  try {
+    if(timer) halt(at);
+    song.masterGain=mixGain(await renderMix(false));
+    if(wasPlaying) {await ctx.resume();play()}
+    el('message').textContent='Mixing dan mastering diterapkan. Target '+song.mastering.targetLoudness+' LUFS.';
+  } catch {el('message').textContent='Mastering gagal diterapkan. Silakan coba lagi.'}
+  finally {button.disabled=false}
+};
 el('settings').onsubmit=async e=>{
   e.preventDefault();
   const names=[...el('choices').querySelectorAll(':checked')].map(n=>n.value);
@@ -1736,7 +1780,7 @@ const ceilingCurve = Float32Array.from({length:8193},(_,i)=>{
 const placement = { Piano:{pan:-.22, room:.24}, Gitar:{pan:.26, room:.2}, Bass:{pan:0, room:.04}, Drum:{pan:.04, room:.12}, String:{pan:.08, room:.32} };
 const roomLevel = .8;
 // YouTube plays music at about -14 LUFS; quieter songs are not turned up, so aim there.
-const targetLoudness = -14;
+const targetLoudness = () => song.mastering?.targetLoudness ?? -14;
 // A small room: soft noise that fades over about two seconds and darkens as it fades.
 // Seeded, so the same song always renders the same way.
 function roomImpulse(audio) {
@@ -1782,12 +1826,13 @@ function masterBus(audio, raw = false, when = 0, offset = 0) {
   const room = audio.createConvolver();
   room.buffer = roomImpulse(audio);
   const wet = audio.createGain();
-  wet.gain.value = roomLevel;
+  wet.gain.value = song.mastering?.room ?? roomLevel;
   room.connect(wet).connect(input);
   input.room = room;
+  input.roomLevel = wet;
   let out = input;
   // Gentle "glue" compression on the whole mix so it sounds like one recording.
-  if (studioMix) out = out.connect(compressor(audio, glue, 12));
+  if (song.mastering?.studioMix ?? studioMix) out = out.connect(compressor(audio, glue, 12));
   if (song.genre === 'Lo-fi') {
     // Warm, slightly dull tone with the deepest rumble removed, plus vinyl noise.
     const warm = audio.createBiquadFilter();
@@ -1837,7 +1882,7 @@ function trackBus(audio, track, master) {
   bus.gain.value = track.muted ? 0 : track.volume;
   const spot = placement[track.name] ?? { pan:0, room:.15 };
   let out = bus;
-  const strip = studioMix ? channelStrip[track.name] : null;
+  const strip = (song.mastering?.studioMix ?? studioMix) ? channelStrip[track.name] : null;
   if (strip) {
     for (const [type, frequency, gain, q] of strip.eq) {
       const f = audio.createBiquadFilter();
@@ -1850,11 +1895,13 @@ function trackBus(audio, track, master) {
     out = out.connect(trim);
   }
   const pan = audio.createStereoPanner();
-  pan.pan.value = spot.pan;
+  pan.pan.value = track.pan ?? spot.pan;
   const send = audio.createGain();
   send.gain.value = spot.room;
   out.connect(pan).connect(master);
   out.connect(send).connect(master.room);
+  bus.panNode=pan;
+  bus.send=send;
   return bus;
 }
 // Integrated loudness in LUFS (ITU-R BS.1770: K-weighting, 400 ms blocks, gating).
@@ -1938,11 +1985,11 @@ function limit(buffer, gain, envelope = null) {
 // Final file: reach the target loudness, but never squash peaks by more than `maxSquashDb`.
 const maxSquashDb = 6;
 function master(raw) {
-  let gain = 10 ** ((targetLoudness - loudness(raw)) / 20), out;
+  let gain = 10 ** ((targetLoudness() - loudness(raw)) / 20), out;
   for (let pass = 0; pass < 3; pass++) {
     out = limit(raw, gain);
     // Move toward the target loudness, but back off if peaks would be squashed too hard.
-    gain *= Math.min(10 ** ((targetLoudness - loudness(out)) / 20), 10 ** ((out.deepestDb + maxSquashDb) / 20));
+    gain *= Math.min(10 ** ((targetLoudness() - loudness(out)) / 20), 10 ** ((out.deepestDb + maxSquashDb) / 20));
   }
   out = limit(raw, gain);
   out.loudness = loudness(out);
@@ -1954,7 +2001,7 @@ function mixGain(buffer) {
   let peak = 0;
   for (let c = 0; c < buffer.numberOfChannels; c++) for (const v of buffer.getChannelData(c)) peak = Math.max(peak, Math.abs(v));
   if (peak < .00001) return 1;
-  return Math.min(10 ** ((targetLoudness - loudness(buffer)) / 20), 1 / peak);
+  return Math.min(10 ** ((targetLoudness() - loudness(buffer)) / 20), 1 / peak);
 }
 async function renderMix(normalized) {
     const audio=new OfflineAudioContext(2,Math.ceil(total()*44100),44100);
@@ -2002,7 +2049,6 @@ el('export').onclick=async()=>{
   } catch {el('message').textContent='Ekspor gagal. Coba ulangi atau pilih durasi lebih pendek.'}
   finally {button.disabled=false}
 };
-
 
 
 
