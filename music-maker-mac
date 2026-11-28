@@ -1,0 +1,9 @@
+#!/bin/bash
+# music-maker komposer (Muse Sounds) — jalankan:  ./music-maker-mac buat|rangkaian [opsi]
+# Pasang dulu sekali:  bash pasang-mac.sh
+DIR="$(cd "$(dirname "$0")" && pwd)"
+PY="$DIR/.env-mac/bin/python"
+if [ ! -x "$PY" ]; then echo "Belum terpasang. Jalankan dulu:  bash pasang-mac.sh"; exit 1; fi
+export PATH="$DIR/.env-mac/bin:$PATH"
+export PYTHONPATH="$DIR${PYTHONPATH:+:$PYTHONPATH}"
+exec "$PY" -m komposer "$@"

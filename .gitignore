@@ -8,3 +8,8 @@ contoh/*.wav
 # CLI
 node_modules/
 hasil/
+
+# Muse Sounds mode (pasang-mac.sh)
+.env-mac/
+.mamba/
+__pycache__/

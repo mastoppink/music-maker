@@ -107,7 +107,7 @@ function parseArgs(argv) {
     }
     const [key, inline] = arg.slice(2).split(/=(.*)/s);
     // On/off switches need no value.
-    if (['midi', 'midi-saja', 'stem', 'mp3', 'tanpa-cek-mirip', 'reset-katalog', 'rencana'].includes(key) && inline === undefined) { opts[key] = true; continue; }
+    if (['midi', 'midi-saja', 'stem', 'mp3', 'tanpa-cek-mirip', 'reset-katalog', 'rencana', 'izinkan-suara-dasar', 'simpan-wav'].includes(key) && inline === undefined) { opts[key] = true; continue; }
     const value = inline ?? rest[++i];
     if (value === undefined) throw new Error(`Opsi --${key} butuh nilai.`);
     opts[key] = value;
@@ -123,7 +123,7 @@ const pairs = (text, name) => Object.fromEntries(list(text).map(item => {
 
 // Turn command-line options into the settings the engine needs.
 function settingsFrom(opts) {
-  const known = ['mood','genre','sumber','durasi','instrumen','melodi','seed','versi','gaya','pola','variasi','volume','bisu','keluar','dari','browser','bantuan','menit','durasi-lagu','jeda','midi','midi-saja','stem','video','ffmpeg','mesin','campur','hindari_kunci','mp3','target','render','piano','bass-studio','aset-studio','python','katalog','tanpa-cek-mirip','batas-mirip','reset-katalog','rencana'];
+  const known = ['mood','genre','sumber','durasi','instrumen','melodi','seed','versi','gaya','pola','variasi','volume','bisu','keluar','dari','browser','bantuan','menit','durasi-lagu','jeda','midi','midi-saja','stem','video','ffmpeg','mesin','campur','hindari_kunci','mp3','target','render','piano','bass-studio','aset-studio','python','katalog','tanpa-cek-mirip','batas-mirip','reset-katalog','rencana','mscore','birama','lead','kunci','tempo','seed-awal','izinkan-suara-dasar','simpan-wav'];
   for (const key of Object.keys(opts)) if (!known.includes(key)) throw new Error(`Opsi tidak dikenal: --${key}. Lihat "bantuan".`);
   const base = opts.dari ? JSON.parse(fs.readFileSync(opts.dari, 'utf8')) : {};
   const s = {
@@ -322,7 +322,7 @@ function studioReady(opts) {
 }
 function studioOptions(opts, s) {
   const asked = opts.render ?? process.env.MUSIC_MAKER_RENDER ?? null;
-  if (asked && !['app', 'studio'].includes(asked)) throw new Error('--render harus app atau studio.');
+  if (asked && !['app', 'studio'].includes(asked)) throw new Error('--render harus app, studio, atau musesounds.');
   if (asked === 'app') return null;
   const ready = studioReady(opts);
   if (!ready.ok) {
@@ -587,7 +587,7 @@ async function mix(opts) {
   if (spawnSync(ff, ['-version']).status === 0) {
     process.stdout.write('Mengukur kekerasan seluruh rangkaian… ');
     const m = spawnSync(ff, ['-hide_banner', '-nostats', '-i', joined, '-af', `loudnorm=I=${target}:TP=-1.2:LRA=20:print_format=json`, '-f', 'null', '-'], { encoding: 'utf8', maxBuffer: 1 << 26 });
-    const json = JSON.parse(m.stderr.slice(m.stderr.lastIndexOf('{')));
+    const json = JSON.parse(m.stderr.slice(m.stderr.lastIndexOf('{'), m.stderr.lastIndexOf('}') + 1));
     measured = json;
     console.log(`${json.input_i} LUFS, puncak ${json.input_tp} dBTP`);
     const af = `loudnorm=I=${target}:TP=-1.2:LRA=20:measured_I=${json.input_i}:measured_TP=${json.input_tp}:measured_LRA=${json.input_lra}:measured_thresh=${json.input_thresh}:offset=${json.target_offset}:linear=true,aresample=44100`;
@@ -694,10 +694,36 @@ async function show(opts) {
   }
 }
 
+// --render musesounds: the Python composer (komposer/) writes the score as MusicXML and renders it with the
+// local MuseScore Studio 4 + Muse Sounds, then masters it. Same commands, see README "Cara pakai di Mac sendiri".
+function museSounds(command, opts) {
+  const { spawnSync } = require('child_process');
+  const root = path.join(__dirname, '..');
+  const cands = [opts.python, path.join(root, '.env-mac', 'bin', 'python'), 'python3'].filter(Boolean);
+  const py = cands.find(p => spawnSync(p, ['-c', 'import music21, mido, numpy'], { cwd: root }).status === 0);
+  if (!py) throw new Error('Komposer Muse Sounds belum terpasang. Jalankan sekali: bash pasang-mac.sh');
+  const map = { mood: 'mood', seed: 'seed', keluar: 'keluar', menit: 'menit', jeda: 'jeda', katalog: 'katalog',
+    'batas-mirip': 'ambang', mscore: 'mscore', birama: 'birama', lead: 'lead', kunci: 'kunci', tempo: 'tempo', 'seed-awal': 'seed-awal' };
+  const flags = ['tanpa-cek-mirip', 'reset-katalog', 'rencana', 'izinkan-suara-dasar', 'simpan-wav'];
+  const args = ['-m', 'komposer', command, '--render', 'musesounds'];
+  for (const [k, v] of Object.entries(opts)) {
+    if (k === 'render' || k === '_' || k === 'python') continue;
+    if (flags.includes(k)) { if (v) args.push('--' + k); continue; }
+    if (!map[k]) throw new Error(`--${k} tidak dipakai oleh --render musesounds (opsi: ${Object.keys(map).concat(flags).join(', ')}).`);
+    args.push('--' + map[k], String(v));
+  }
+  const env = { ...process.env, PYTHONPATH: root + (process.env.PYTHONPATH ? path.delimiter + process.env.PYTHONPATH : '') };
+  const binDir = path.join(root, '.env-mac', 'bin');
+  if (fs.existsSync(binDir)) env.PATH = binDir + path.delimiter + env.PATH;
+  const r = spawnSync(py, args, { stdio: 'inherit', env });
+  if (r.status !== 0) throw new Error('render Muse Sounds tidak selesai (lihat pesan di atas).');
+}
+
 (async () => {
   try {
     const { command, opts } = parseArgs(process.argv.slice(2));
     if (opts.bantuan || ['bantuan','help','-h','--help'].includes(command)) console.log(help);
+    else if (['buat', 'rangkaian'].includes(command) && (opts.render ?? process.env.MUSIC_MAKER_RENDER) === 'musesounds') museSounds(command, opts);
     else if (command === 'buat') await make(opts);
     else if (command === 'rangkaian') await mix(opts);
     else if (command === 'master') masterFiles(opts);

@@ -296,6 +296,69 @@ node cli/music-maker.js rangkaian --menit 60 --campur Sedih/Akustik,Melankolis/A
 
 Bahan lain tidak butuh kredit: Upright Piano KW (CC0), VSCO-2 CE (CC0), dan rekaman aplikasi (CC0, lihat `samples/RECORDINGS.txt`). Hall-nya sintetis (dibuat dari noise), bukan rekaman ruangan, jadi tanpa lisensi tambahan.
 
+## Cara pakai di Mac sendiri (Muse Sounds)
+
+Mode ini **menyusun lagu sendiri** (mesin `komposer/`, untuk mood **Sedih** dan **Melankolis**), menulis partitur
+**MusicXML** lengkap dengan tempo, dinamika, pedal, dan legato, lalu memainkannya dengan **Muse Sounds** lewat
+MuseScore Studio 4 di Mac Anda sendiri, kemudian mastering ke −14 LUFS dan menyimpan MP3. Semua berjalan di Mac
+Anda; tidak perlu komputer lain.
+
+**Isi lagu**: motif pendek yang dikembangkan (diulang, dinaikkan, dijawab), frasa tanya–jawab, desahan (nada
+turun setengah/satu langkah), apogiatura dan suspensi 4-3 / 9-8, kadens tipuan (V→VI), akor Neapolitan di
+klimaks, bas ratapan (turun kromatis) saat tema kembali, satu klimaks yang jelas, dan ritardando di akhir.
+Tiap lagu berbeda birama (4/4, 3/4, 6/8), tempo, kunci, alat utama (piano / piano + string / cello), dan intro.
+Lagu baru dibandingkan dengan katalog lagu sebelumnya supaya tidak mirip (`~/.music-maker/katalog-komposer.json`).
+
+### Pasang (sekali saja)
+
+1. Pasang **Muse Hub** (dari musescore.org), login, lalu dari Muse Hub pasang **MuseScore Studio 4** dan
+   **Muse Sounds** (minimal *Muse Keys* dan *Muse Strings*). Buka MuseScore sekali.
+   Lakukan di **akun Mac yang sama** dengan yang dipakai menjalankan perintah di bawah — lisensi Muse Sounds
+   terikat pada akun Muse Hub di akun Mac itu.
+2. Di Terminal, di folder music-maker:
+   ```
+   bash pasang-mac.sh
+   ```
+   Ini memasang Python 3.12, music21, mido, numpy, dan ffmpeg ke folder `.env-mac/` di dalam repo
+   (tanpa admin, tanpa Homebrew; sekitar 700 MB; hapus kapan saja dengan `rm -rf .env-mac .mamba`).
+   Butuh internet saat pemasangan saja.
+
+### Satu lagu
+
+```
+./music-maker-mac buat --mood Sedih --render musesounds --keluar ~/Music/music-maker
+```
+
+Hasil: `.mp3` (siap pakai), `.musicxml` (bisa dibuka dan diedit di MuseScore), `.mid`, dan `.json`
+(rencana lagu + hasil cek). Tambahkan `--seed 12` untuk lagu tertentu (seed yang sama = lagu yang sama),
+atau pilih sendiri: `--lead cello`, `--birama 3/4`, `--kunci D`, `--tempo 52`, `--mood Melankolis`.
+
+### Satu jam
+
+```
+./music-maker-mac rangkaian --mood Sedih --menit 60 --render musesounds --keluar ~/Music/music-maker/sedih-1jam
+```
+
+Sekitar 18–20 lagu berbeda, digabung dengan jeda hening 3 detik, mastering −14 LUFS, plus
+`*-daftar-lagu.txt` (bab/waktu untuk deskripsi YouTube). Kalau terhenti, jalankan perintah yang sama lagi:
+lagu yang sudah selesai tidak dibuat ulang. `--rencana` menampilkan rencana variasi tanpa membuat apa pun;
+`--seed-awal 200` memberi rangkaian lain.
+
+Perintah yang sama juga bisa lewat CLI utama: `node cli/music-maker.js buat --mood Sedih --render musesounds`.
+
+### Pemeriksaan otomatis
+
+- **Partitur**: MusicXML dibaca ulang; jumlah not, birama, tempo, pedal, dan dinamika harus cocok dengan komposisi.
+- **Lisensi Muse Sounds**: kalau MuseScore tidak bisa memuat Muse Sounds (misalnya akun Mac lain atau belum login
+  Muse Hub) ia diam-diam memakai suara dasar. music-maker mendeteksinya dari log MuseScore, **berhenti dengan
+  pesan jelas**, dan tidak menyimpan hasil bersuara dasar.
+- **Audio**: −14 LUFS, true peak ≤ −1 dBTP, kompresi halus (rasio 2:1) supaya dinamika musik tetap terasa,
+  lalu cek jeda hening dan klik. Ringkasan tercetak di akhir, misalnya
+  `Judul: 3:39 | -14.0 LUFS | LRA 15.6->10.1 | puncak -2.3 dBTP | cek: bersih`.
+
+Lisensi: musik yang dibuat dengan Muse Sounds boleh dimonetisasi (termasuk YouTube) tanpa kredit; rekaman
+suara Muse Sounds sendiri tidak boleh dibagikan terpisah, dan lisensinya pribadi untuk pemilik akun Muse Hub.
+
 ## Kualitas suara
 
 - **Dinamika per frasa**: melodi mengeras menuju tengah frasa lalu melembut, nada tinggi sedikit ditekankan, dan bagian penuh lebih bertenaga daripada bagian tenang, seperti dimainkan orang.
@@ -321,5 +384,7 @@ Sebelum mengunggah ke YouTube, periksa juga kebijakan monetisasi terbaru, teruta
 | `classics.js` | 24 korale J.S. Bach |
 | `samples.js` | rekaman instrumen (CC0), ditanam sebagai base64: piano, gitar nilon, kontrabas, drum (kick, snare, rim, shaker, hi-hat), dan string |
 | `cli/music-maker.js` | versi baris perintah |
+| `komposer/` | penyusun lagu Sedih/Melankolis + ekspor MusicXML + render Muse Sounds dan mastering (`--render musesounds`) |
+| `pasang-mac.sh`, `music-maker-mac` | pemasangan tanpa admin dan perintah untuk mode Muse Sounds di Mac |
 | `cli/mastering.js` | mastering untuk perintah `master` (baca WAV/AIFF, LUFS, limiter, true peak, tulis WAV) |
 | `PLAN.md` | keadaan sekarang, riwayat keputusan, dan rencana berikutnya |
