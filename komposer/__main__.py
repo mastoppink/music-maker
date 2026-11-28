@@ -2,10 +2,12 @@
 
   buat       one composed song  -> .mid + .musicxml (+ Muse Sounds .wav/.mp3 with --render musesounds)
   rangkaian  N different songs joined into one long audio (e.g. 60 minutes), resumable
+  kumpulan   N different songs as separate files (e.g. 15 songs of ~5 minutes), resumable
 
 Examples (see README, "Cara pakai di Mac sendiri"):
   ./music-maker-mac buat --mood Sedih --seed 12 --render musesounds --keluar ~/Music/mm
   ./music-maker-mac rangkaian --mood Sedih --menit 60 --render musesounds --keluar ~/Music/mm/jam1
+  ./music-maker-mac kumpulan --mood Sedih --jumlah 15 --durasi 300 --render musesounds --wav --keluar ~/Music/mm/album1
 """
 import argparse, json, os, random, re, shutil, subprocess, sys, time
 
@@ -51,7 +53,7 @@ def finish_song(a, s, base):
     if a.render == 'musesounds':
         t0 = time.time()
         ms.render(base + '.musicxml', base + '.wav', mscore=a.mscore, allow_basic=a.izinkan_suara_dasar)
-        m = ms.master(base + '.wav', base + '.mp3')
+        m = ms.master(base + '.wav', base + '.mp3', wav_out=(base + '-siap-edit.wav') if getattr(a, 'wav', False) else None)
         sc = ms.scan(base + '.mp3')
         info.update(render_detik=round(time.time() - t0), master=m, cek=sc, ringkas=ms.ringkas(s.name, m, sc))
         if not a.simpan_wav:
@@ -66,6 +68,7 @@ def force_from(a):
     if a.lead: f['lead'] = a.lead
     if a.kunci: f['key'] = a.kunci
     if a.tempo: f['bpm'] = a.tempo
+    if getattr(a, 'durasi', None): f['durasi'] = a.durasi
     return f
 
 
@@ -84,7 +87,7 @@ def cmd_buat(a):
     d = info['ukuran']
     say(f"  {d['detik']} detik, klimaks {d['klimaks']}, MusicXML valid ({info['validasi']['not_terbaca']} not)")
     if 'ringkas' in info: say('  ' + info['ringkas'])
-    for ext in ('.mp3', '.musicxml', '.mid'):
+    for ext in ('.mp3', '-siap-edit.wav', '.musicxml', '.mid'):
         if os.path.exists(base + ext): say('  ' + base + ext)
 
 
@@ -156,18 +159,18 @@ def cmd_rangkaian(a):
     ff = ms.find_tool('ffmpeg')
     gap = a.jeda
     lst = os.path.join(outdir, '.gabung.txt'); sil = os.path.join(outdir, '.hening.wav')
-    run([ff, '-y', '-loglevel', 'error', '-f', 'lavfi', '-i', f'anullsrc=r=48000:cl=stereo', '-t', str(gap), '-c:a', 'pcm_f32le', sil])
+    run([ff, '-nostdin', '-y', '-loglevel', 'error', '-f', 'lavfi', '-i', f'anullsrc=r=48000:cl=stereo', '-t', str(gap), '-c:a', 'pcm_f32le', sil])
     parts = []
     with open(lst, 'w') as f:
         for k, x in enumerate(st['lagu']):
             mp = x['dasar'] + '.norm.wav'
             if not os.path.exists(mp):
-                run([ff, '-y', '-loglevel', 'error', '-i', x['dasar'] + '.mp3', '-ar', '48000', '-ac', '2', '-c:a', 'pcm_f32le', mp])
+                run([ff, '-nostdin', '-y', '-loglevel', 'error', '-i', x['dasar'] + '.mp3', '-ar', '48000', '-ac', '2', '-c:a', 'pcm_f32le', mp])
             f.write(f"file '{mp}'\n")
             if k + 1 < len(st['lagu']): f.write(f"file '{sil}'\n")
             parts.append(mp)
     joined = os.path.join(outdir, '.gabung.wav')
-    run([ff, '-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', lst, '-c:a', 'pcm_f32le', joined])
+    run([ff, '-nostdin', '-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', lst, '-c:a', 'pcm_f32le', joined])
     name = f"{slug(a.mood)}-{a.menit}menit"
     mp3 = os.path.join(outdir, name + '.mp3')
     m = ms.master(joined, mp3, extra_filter=None)
@@ -190,10 +193,48 @@ def cmd_rangkaian(a):
     say(mp3); say(os.path.join(outdir, name + '-daftar-lagu.txt'))
 
 
+# ------------------------------------------------------------------ kumpulan
+def cmd_kumpulan(a):
+    """N different songs as separate, finished files (no joining) + a song list. Resumable:
+    run the same command again and it continues with the songs that are not done yet."""
+    outdir = os.path.expanduser(a.keluar); os.makedirs(outdir, exist_ok=True)
+    kat = os.path.expanduser(a.katalog)
+    if a.reset_katalog and os.path.exists(kat): os.remove(kat)
+    state_p = os.path.join(outdir, 'kumpulan.json')
+    st = json.load(open(state_p)) if os.path.exists(state_p) else dict(mood=a.mood, jumlah=a.jumlah, durasi=a.durasi,
+                                                                       rencana=plan_set(a, a.jumlah), lagu=[])
+    if a.rencana:
+        for p in st['rencana']: say(f"{p['nomor']:2d}. seed {p['seed']}  {p['lead']:13s} {p['meter']}  {p['key']} minor")
+        return
+    used = {x['judul'] for x in st['lagu']} | {e['judul'] for e in katalog.load(kat)['lagu']}
+    done = {x['nomor'] for x in st['lagu']}
+    for p in st['rencana']:
+        if p['nomor'] in done: continue
+        force = dict(lead=p['lead'], meter=p['meter'], key=p['key'], durasi=st['durasi'], used_titles=tuple(used))
+        s, c, seed, sim = make_song(a, p['seed'], force, kat, not a.tanpa_cek_mirip)
+        base = os.path.join(outdir, f"{p['nomor']:02d}-{slug(s.name)}")
+        say(f"[{p['nomor']}/{len(st['rencana'])}] {s.name}: {p['lead']}, {p['meter']}, {s.key_str}, {s.plan['bpm']} BPM (seed {seed})")
+        info = finish_song(a, s, base)
+        if not a.tanpa_cek_mirip: katalog.add(s, kat, dict(mood=a.mood, seed=seed))
+        if a.render == 'musesounds' and not a.simpan_wav and os.path.exists(base + '.wav'): os.remove(base + '.wav')
+        dur = info['cek']['detik'] if 'cek' in info else info['ukuran']['detik']
+        if 'ringkas' in info: say('    ' + info['ringkas'])
+        st['lagu'].append(dict(nomor=p['nomor'], judul=s.name, seed=seed, dasar=base, detik=dur, kunci=s.plan['tonic'] + ' minor',
+                               tempo=s.plan['bpm'], birama=s.plan['meter'], lead=s.plan['lead'],
+                               klimaks=info['ukuran']['klimaks']))
+        used.add(s.name)
+        json.dump(st, open(state_p, 'w'), indent=1)
+    lines = ['No | Judul | Kunci | Tempo | Birama | Melodi | Durasi']
+    for x in sorted(st['lagu'], key=lambda x: x['nomor']):
+        lines.append(f"{x['nomor']:02d} | {x['judul']} | {x['kunci']} | {x['tempo']} BPM | {x['birama']} | {x['lead']} | {ms.fmt(x['detik'])}")
+    with open(os.path.join(outdir, 'daftar-lagu.txt'), 'w') as f: f.write('\n'.join(lines) + '\n')
+    say(f"Selesai: {len(st['lagu'])} lagu di {outdir} (daftar-lagu.txt)")
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(prog='music-maker komposer')
     sub = ap.add_subparsers(dest='cmd', required=True)
-    for nm in ('buat', 'rangkaian'):
+    for nm in ('buat', 'rangkaian', 'kumpulan'):
         p = sub.add_parser(nm)
         p.add_argument('--mood', '--suasana', default='Sedih', choices=['Sedih', 'Melankolis'])
         p.add_argument('--keluar', default='~/Music/music-maker')
@@ -206,18 +247,27 @@ def main(argv=None):
         p.add_argument('--katalog', default=katalog.DEFAULT)
         p.add_argument('--ambang', type=float, default=katalog.THRESHOLD)
         p.add_argument('--dinamika-min', default='pp', choices=['ppp', 'pp', 'p', 'mp'])
+        p.add_argument('--wav', action='store_true', help='simpan juga hasil master sebagai WAV 24-bit 48 kHz (siap edit)')
+        if nm in ('buat', 'kumpulan'):
+            p.add_argument('--durasi', type=int, default=None if nm == 'buat' else 300,
+                           help='perkiraan panjang lagu dalam detik (mis. 300 = sekitar 5 menit); lagu dibuat lebih panjang '
+                                'dengan bagian baru (jeda, tema kembali, klimaks kedua), bukan diulang')
+        if nm == 'kumpulan':
+            p.add_argument('--jumlah', type=int, default=10)
+            p.add_argument('--seed-awal', type=int, default=1)
+            p.add_argument('--rencana', action='store_true', help='hanya tampilkan rencana variasi')
         if nm == 'buat':
             p.add_argument('--seed', type=int)
             p.add_argument('--birama', choices=METERS); p.add_argument('--lead', choices=LEADS)
             p.add_argument('--kunci', choices=[k for k, _ in lagu.KEYS]); p.add_argument('--tempo', type=int)
-        else:
+        elif nm == 'rangkaian':
             p.add_argument('--menit', type=int, default=60)
             p.add_argument('--seed-awal', type=int, default=1)
             p.add_argument('--jeda', type=float, default=3.0, help='detik hening antar lagu')
             p.add_argument('--rencana', action='store_true', help='hanya tampilkan rencana variasi')
     a = ap.parse_args(argv)
     try:
-        (cmd_buat if a.cmd == 'buat' else cmd_rangkaian)(a)
+        {'buat': cmd_buat, 'rangkaian': cmd_rangkaian, 'kumpulan': cmd_kumpulan}[a.cmd](a)
     except ms.RenderError as e:
         print('\nGAGAL: ' + str(e), file=sys.stderr); sys.exit(2)
 

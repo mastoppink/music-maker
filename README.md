@@ -333,6 +333,21 @@ Hasil: `.mp3` (siap pakai), `.musicxml` (bisa dibuka dan diedit di MuseScore), `
 (rencana lagu + hasil cek). Tambahkan `--seed 12` untuk lagu tertentu (seed yang sama = lagu yang sama),
 atau pilih sendiri: `--lead cello`, `--birama 3/4`, `--kunci D`, `--tempo 52`, `--mood Melankolis`.
 
+Lagu lebih panjang: `--durasi 300` (sekitar 5 menit). Lagu tidak diulang-ulang; music-maker menambah bagian
+baru: jeda singkat, tema kembali di nada lebih tinggi dengan iringan lain, lalu klimaks kedua yang lebih tinggi dari
+yang pertama, dan penutup yang lebih panjang. `--wav` menyimpan juga master WAV 24-bit 48 kHz (siap edit video).
+
+### Banyak lagu terpisah (misalnya 15 lagu × 5 menit)
+
+```
+./music-maker-mac kumpulan --mood Sedih --jumlah 15 --durasi 300 --render musesounds --wav --keluar ~/Music/music-maker/album1
+```
+
+Setiap lagu jadi file sendiri (`01-judul.mp3`, `01-judul-siap-edit.wav`, partitur, MIDI) plus `daftar-lagu.txt`
+(nomor, judul, kunci, tempo, birama, alat utama, durasi). Alat utama, birama, dan kunci bergiliran supaya tidak
+monoton; judul tidak berulang (kata benda dan kata sifat yang sama dihindari). Kalau terhenti, jalankan perintah
+yang sama lagi. `--rencana` menampilkan rencananya dulu; `--seed-awal 300` memberi kumpulan lain.
+
 ### Satu jam
 
 ```

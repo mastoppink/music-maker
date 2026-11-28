@@ -102,18 +102,56 @@ CONT_DN = {1: [[]], 2: [[-1], [-2]], 3: [[-1, -1], [-2, -1]], 4: [[-1, -1, -1], 
 
 KEYS = [('A', 9), ('Bb', 10), ('B', 11), ('C', 0), ('C#', 1), ('D', 2), ('E', 4), ('F', 5), ('F#', 6), ('G', 7)]
 
-NOUNS = ['Jendela', 'Surat', 'Kursi', 'Selimut', 'Hujan', 'Lampu', 'Cangkir', 'Foto', 'Pintu', 'Lorong', 'Bangku',
-         'Kamar', 'Pesan', 'Senja', 'Lilin', 'Payung', 'Halaman', 'Tangga', 'Bantal', 'Syal', 'Mantel', 'Piring',
-         'Jam Dinding', 'Kotak Musik', 'Kemeja', 'Buku Harian', 'Sepatu', 'Teh']
-ADJS = ['Kosong', 'Berembun', 'Terakhir', 'yang Tertinggal', 'Dingin', 'yang Tak Terkirim', 'yang Diam', 'Basah',
-        'Redup', 'Terlipat', 'yang Menunggu', 'Sunyi', 'Tanpa Suara', 'yang Hilang', 'di Lantai', 'di Ujung Malam',
-        'yang Tak Kembali', 'yang Masih Hangat', 'Setengah Terbuka', 'yang Tidak Diangkat']
+# titles: every noun only with adjectives that make sense for it (no "Teh yang Tak Terkirim")
+TITLES = {
+    'Jendela': ['yang Diam', 'Basah', 'Setengah Terbuka', 'di Ujung Malam'],
+    'Surat': ['Terlipat', 'Terakhir', 'yang Tak Pernah Dibalas', 'di Laci'],
+    'Kursi': ['yang Menunggu', 'di Sudut Kamar'],
+    'Selimut': ['Dingin', 'Terlipat'],
+    'Hujan': ['di Ujung Malam', 'yang Tak Reda', 'Pertama Tanpamu'],
+    'Lampu': ['Redup', 'yang Lupa Dimatikan'],
+    'Cangkir': ['Dingin', 'yang Tak Tersentuh'],
+    'Foto': ['Terbalik', 'yang Memudar', 'di Laci'],
+    'Pintu': ['Setengah Terbuka', 'yang Tak Lagi Diketuk'],
+    'Lorong': ['Sunyi', 'Redup'],
+    'Bangku': ['yang Menunggu', 'di Taman Sepi'],
+    'Pesan': ['Terakhir', 'yang Tak Terbaca'],
+    'Senja': ['Terakhir', 'Tanpa Suara', 'yang Hilang'],
+    'Lilin': ['Redup', 'yang Hampir Padam'],
+    'Payung': ['yang Tertinggal', 'Basah'],
+    'Tangga': ['Sunyi', 'ke Loteng'],
+    'Bantal': ['Basah', 'yang Masih Wangi'],
+    'Syal': ['yang Tertinggal', 'Terlipat'],
+    'Mantel': ['di Gantungan', 'yang Tertinggal'],
+    'Jam Dinding': ['yang Berhenti', 'Sunyi'],
+    'Kotak Musik': ['yang Rusak', 'yang Diam'],
+    'Buku Harian': ['Terakhir', 'yang Terbuka'],
+    'Sepatu': ['di Depan Pintu', 'yang Tak Dipakai'],
+    'Teh': ['yang Mendingin'],
+    'Halaman': ['Terakhir'],
+    'Kamar': ['Sunyi', 'yang Tak Disentuh'],
+    'Kemeja': ['Terlipat', 'di Kursi'],
+    'Piano': ['yang Tertutup', 'Tanpa Pemain'],
+    'Gelang': ['yang Tertinggal'],
+    'Ranjang': ['Setengah Kosong'],
+}
+# titles of earlier SadnessMelody songs: never reused
+TAKEN = {'Selimut yang Masih Hangat', 'Lampu Tanpa Suara', 'Kamar Berembun', 'Cangkir Berembun', 'Kemeja yang Tidak Diangkat',
+         'Foto Kosong', 'Kursi Kosong', 'Surat untuk Ibu', 'Hujan Terakhir', 'Jendela Berembun', 'Selimut di Lantai',
+         'Pesan yang Tak Terkirim', 'Jendela yang Berembun'}
 
 
 def title_for(rng, used=()):
-    for _ in range(200):
-        t = f'{rng.choice(NOUNS)} {rng.choice(ADJS)}'
-        if t not in used: return t
+    """a title that is not used yet; nouns already used in this set/catalogue are avoided too"""
+    used = set(used) | TAKEN
+    used_nouns = {n for n in TITLES for t in used if t.startswith(n + ' ')}
+    used_adjs = {t[len(n) + 1:] for n in TITLES for t in used if t.startswith(n + ' ')}
+    for avoid in (2, 1, 0):                    # avoid repeating a noun, then an adjective, if possible
+        nouns = [n for n in TITLES if not (avoid >= 1 and n in used_nouns)]
+        rng.shuffle(nouns)
+        for n in nouns:
+            adjs = [a for a in TITLES[n] if f'{n} {a}' not in used and not (avoid >= 2 and a in used_adjs)]
+            if adjs: return f'{n} {rng.choice(adjs)}'
     return f'Lagu {rng.randint(100, 999)}'
 
 
@@ -135,7 +173,8 @@ def make_plan(mood, seed, **force):
     intro = force.get('intro') or rng.choice({'piano': ['detak', 'sendiri', 'lonceng'], 'piano+string': ['string', 'detak', 'sendiri'],
                                                'cello': ['ratapan', 'detak']}[lead])
     return dict(mood=mood, seed=seed, meter=meter, m=m, ts68=meter == '6/8', lead=lead, tonic=tonic, tpc=tpc, bpm=bpm,
-                intro=intro, double_climax=rng.random() < .5, title=force.get('title') or title_for(rng, force.get('used_titles', ())))
+                intro=intro, double_climax=rng.random() < .5, title=force.get('title') or title_for(rng, force.get('used_titles', ())),
+                durasi=force.get('durasi'))
 
 
 # --------------------------------------------------------------------------- composer
@@ -215,7 +254,7 @@ class Composer:
             nxt = notes[i + 1] if i + 1 < len(notes) else None
             prv = notes[i - 1] if i > 0 else None
             if n < self.lo or n > self.hi: s += 12
-            if forbid_above is not None and n >= forbid_above: s += 15
+            if forbid_above is not None and n >= forbid_above: s += 60      # the climax note must stay unique
             if self.strong(pos, dur):
                 if not ct:
                     if nxt and 1 <= n - nxt[2] <= 2 and self.rel(nxt[2]) in chord_pcs(self.chord_at(harm, nxt[0])):
@@ -338,18 +377,60 @@ class Composer:
             sections.append(("A'", lam, ['copy'] * 7 + ['cad:pulang']))
         cod = P('coda8' if long3 else 'coda4')
         sections.append(('Coda', cod, ['frag', 'mB-', 'tahan', 'akhir'] if not long3 else ['frag', 'mB-', 'tahan', 'tahan', 'frag', 'mB-', 'tahan', 'akhir']))
-        self.sections = sections
+        if p.get('durasi') and p['durasi'] > self.est_seconds(sections) + 40:
+            sections = self.long_form(sections, P, long3)
+        self.sections = [x if len(x) == 4 else x + (x[0],) for x in sections]      # (label, harm, roles, kind)
         self.write_melody()
         return self
+
+    def est_seconds(self, sections):
+        bars = sum(len(x[1]) for x in sections)
+        return bars * self.m * 60 / self.p['bpm'] * 1.0 + 4
+
+    def long_form(self, sections, P, long3):
+        """--durasi: a longer song that still develops instead of looping:
+        Intro - A - B (first, smaller climax) - A' (lament) - Interlude - A2 (theme returns higher, new
+        accompaniment) - B2 (the real climax, new progression) - long Coda.  Parts are sized to the target."""
+        rng = self.rng
+        intro, A, B, Ap, cod = sections
+        b_roles = ['puncak1' if r == 'puncak' else r for r in B[2]]
+        B1 = ('B', B[1], b_roles, 'B')
+        jh = parse_prog(rng.choice(['VI | iv | VI | V', 'VImaj7 | iv | III | V', 'iv | VI | iv/0 | Vsus4 V']), self.m)
+        J = ('Jeda', jh, ['frag', 'tahan', 'frag', 'cad:tanya'], 'Jembatan')
+        q = P('tanya'); c = P('pulang'); q2 = P('tanya'); c2 = P('tipu')
+        a2_8 = ('A2', q + c, ['mA^', 'mB^', 'mA^+', 'cad:tanya', 'mA^', 'mB^', 'turun', 'cad:pulang'], 'A')
+        a2_16 = ('A2', q + c2 + q2 + c, ['mA', 'mB', 'mA+', 'cad:tanya', 'mA^', 'mB^', 'naik', 'cad:tipu',
+                                         'mA^', 'mB^', 'mA^+', 'cad:tanya', 'mA^', 'mB^', 'turun', 'cad:pulang'], 'A')
+        kl = P('klimaks')
+        if long3:
+            b2 = P('hangat') + P('tanya')[:3] + kl
+            b2r = ['bA', 'bB', 'bA+', 'cad:tanya', 'naik', 'naik', 'naik', 'naik', 'naik', 'puncak', 'jatuh', 'cad:tipu']
+        else:
+            b2 = P('hangat') + kl
+            b2r = ['bA', 'bB', 'bA+', 'cad:tanya', 'naik', 'naik', 'puncak', 'jatuh', 'cad:tipu']
+        B2 = ('B2', b2, b2r, 'B')
+        c8 = P('coda8')
+        cod8 = ('Coda', c8, ['frag', 'mB-', 'tahan', 'tahan', 'frag', 'mB-', 'tahan', 'akhir'], 'Coda')
+        target = self.p['durasi']
+        best = None
+        for a2 in (a2_8, a2_16):
+            for jj in ([J], []):
+                for cc in (cod8, cod):
+                    form = [intro, A, B1, Ap] + jj + [a2, B2, cc]
+                    e = self.est_seconds(form)
+                    d = abs(e - target) + (0 if jj else 6)          # prefer keeping the breathing interlude
+                    if best is None or d < best[0]: best = (d, form)
+        return best[1]
 
     def write_melody(self):
         M = self.m
         bars = []
-        for sec, harm, roles in self.sections:
+        for sec, harm, roles, kind in self.sections:
             for k, (h, r) in enumerate(zip(harm, roles)):
-                bars.append(dict(sec=sec, harm=h, role=r, notes=[], k=k))
+                bars.append(dict(sec=sec, kind=kind, harm=h, role=r, notes=[], k=k))
         self.bars = bars
         A_notes = [b for b in bars if b['sec'] == 'A']
+        last_B = [b['sec'] for b in bars if b['kind'] == 'B'][-1]
         # B section must climb to the single highest note
         peak_steps = 9 if self.p['lead'] != 'cello' else 8
         pb = next(b for b in bars if b['role'] == 'puncak')
@@ -396,9 +477,10 @@ class Composer:
                     b['notes'] = self.best_bar(h, rr, [cont], st, prev, forbid_above=a_ceiling + 1) or src['notes']
                 prev = b['notes'][-1][2] if b['notes'] else prev
                 continue
-            sec = b['sec']
+            sec = b['sec']; kind = b['kind']
+            fa_b = self.peak if sec == last_B else self.peak - 2     # only the last B may reach the peak
             # target steps per role
-            base = {'A': 0, 'B': 3, "A'": -1, 'Coda': -1}[sec]
+            base = {'A': 0, 'B': 3, "A'": -1, 'Coda': -1, 'Jembatan': -1}[kind]
             hi = 2 if role.endswith('^') or role.endswith('^+') else 0
             if role.startswith('cad:'):
                 kind = role[4:]
@@ -408,6 +490,11 @@ class Composer:
                 n = self.peak
                 nt = [(0, M, n)]
                 b['peak'] = n
+            elif role == 'puncak1':                  # first climax: held a little below the real peak
+                ch = self.chord_at(h, 0)
+                c1 = [x for x in range(self.lo, self.peak - 1) if self.rel(x) in chord_pcs(ch)]
+                n = max(c1) if c1 else self.peak - 3
+                nt = [(0, M, n)]
             elif role == 'jatuh':
                 pkn = bars[i - 1]['notes'][-1][2] if bars[i - 1]['notes'] else self.target(peak_steps - 1)
                 rh = {4: [1, 1.5, .5, 1], 3: [1, 1, 1], 6: [1, .5, 1.5]}[self.rk]
@@ -417,7 +504,7 @@ class Composer:
                 t = self.step_from(prev, 1) if prev else self.target(base + 2)
                 rh = self.rhyA2 if not isinstance(self.rhyA2[0], str) else self.rhyA2[1:]
                 nt = self.best_bar(h, rh, CONT_UP.get(len(rh), CONT_UP[3]), t, prev,
-                                   forbid_above=(a_ceiling if sec != 'B' else self.peak))
+                                   forbid_above=(a_ceiling if kind != 'B' else fa_b))
             elif role == 'turun':
                 rh = self.rhyB
                 nt = self.best_bar(h, rh, CONT_DN.get(len(rh), CONT_DN[3]), self.step_from(prev, 1) if prev else self.target(base), prev, forbid_above=a_ceiling)
@@ -457,8 +544,18 @@ class Composer:
                     first = next((x for x in bars[:i] if x['role'] == role and x['sec'] == sec and x['notes']), None)
                     if first and first['harm'] == h: rep = list(first['notes'])
                 nt = rep or self.best_bar(h, rh, [cont], tn, prev,
-                                          forbid_above=a_ceiling if sec != 'B' else self.peak)
+                                          forbid_above=a_ceiling if kind != 'B' else fa_b)
             b['notes'] = nt or [(0, M, self.target(base))]
+            if role != 'puncak':                     # safety: nothing else may reach the climax note
+                lim = (fa_b if kind == 'B' else a_ceiling + 1) if role != 'puncak1' else self.peak - 1
+                fixed = []
+                for (ps, d, n) in b['notes']:
+                    if n >= lim:
+                        ch = self.chord_at(h, ps)
+                        below = [x for x in self.scale_notes(ch) if x < lim and (self.rel(x) in chord_pcs(ch) or d < 1)]
+                        n = max(below) if below else n - 12
+                    fixed.append((ps, d, n))
+                b['notes'] = fixed
             prev = b['notes'][-1][2]
 
     def max_so_far(self, bars, i):
@@ -478,8 +575,7 @@ class Composer:
         start = {}
         for i, b in enumerate(self.bars):
             start.setdefault(b['sec'], i)
-        for sec in ('Intro', 'A', 'B', "A'", 'Coda'):
-            if sec in start: s.sections.append((sec, start[sec]))
+        for sec, first in sorted(start.items(), key=lambda x: x[1]): s.sections.append((sec, first))
         peak_bar = next(i for i, b in enumerate(self.bars) if b['role'] == 'puncak')
         sedih = p['mood'] == 'Sedih'
         # dynamics envelope (bar -> base melody velocity)
@@ -489,6 +585,13 @@ class Composer:
         else:
             ENV = [(0, 50), (a0, 54), (a0 + 8, 58), (bB - 1, 60), (bB, 60), (peak_bar, 76), (peak_bar + 1, 72),
                    (aP, 56), (cD - 1, 52), (cD, 48), (nb, 38)]
+        if 'B2' in start:                     # long form (--durasi): two climaxes, the second one higher
+            p1 = next(i for i, b in enumerate(self.bars) if b['role'] == 'puncak1')
+            jb = start.get('Jeda', start['A2']); a2, b2 = start['A2'], start['B2']
+            ENV = [(0, 50), (a0, 54), (a0 + 8, 58), (bB - 1, 59), (bB, 59), (p1, 69), (p1 + 1, 66), (aP, 55), (jb, 50),
+                   (a2, 55), (a2 + 4, 58), (b2 - 1, 60), (b2, 61), (peak_bar, 78), (peak_bar + 1, 73), (cD - 1, 54), (cD, 49), (nb, 38)]
+            ENV = sorted(dict(ENV).items())
+            if lead == 'cello': ENV = [(b, round(46 + (v - 38) * 40 / 38)) for b, v in ENV]
         if sedih: ENV = [(b, v - 2) for b, v in ENV]
         def env(bi):
             for (b1, v1), (b2, v2) in zip(ENV, ENV[1:]):
@@ -506,7 +609,7 @@ class Composer:
         for i, b in enumerate(self.bars):
             for (pos, d, n) in b['notes']:
                 v = env(i) + (.55 if lead != 'cello' else .7) * (n - center) + (3 if pos == 0 else 0) + (2 if d >= 2 else 0) - (3 if d <= .5 else 0)
-                if b['role'] == 'puncak': v += 4
+                if b['role'] in ('puncak', 'puncak1'): v += 4
                 v = max(28 if lead != 'cello' else 42, min(94, v))
                 s.add_mel(L, i * M + pos, d, n, v)
         self.accompany(s)
@@ -538,6 +641,26 @@ class Composer:
                 new_st = hit[0] + hit[1]
                 if new_st < st + ln - .5: out.append((new_st, st + ln - new_st, nt, v))
             s.ev[tr] = out
+        # held notes that started earlier (string pads, long bass/piano notes) and rub a semitone against a long
+        # melody note: stop before the melody note and come back after it (the resolution note must not
+        # sound together with its appoggiatura)
+        for tr, evs in s.ev.items():
+            out = []
+            for e in evs:
+                st, ln, nt, v = e
+                if (round(st, 4), nt) in melk: out.append(e); continue
+                pieces = [(st, st + ln)]
+                for m in mel:
+                    if m[1] < .75 or abs(m[2] - nt) % 12 not in (1, 11): continue
+                    m0, m1 = m[0], m[0] + m[1]
+                    nxt = []
+                    for a, b in pieces:
+                        if min(b, m1) - max(a, m0) < .4 or a >= m0 - .05: nxt.append((a, b)); continue
+                        if m0 - a >= .5: nxt.append((a, m0))
+                        if b - m1 >= .5: nxt.append((m1, b))
+                    pieces = nxt
+                for a, b in pieces: out.append((a, b - a, nt, v))
+            s.ev[tr] = out
 
     def accompany(self, s):
         p = self.p; M = self.m; rk = self.rk; lead = p['lead']
@@ -562,11 +685,16 @@ class Composer:
             pat_of = {'Intro': 'waltz', 'A': rng.choice(['waltz', 'rockB']), 'B': 'flow', "A'": 'sparse', 'Coda': 'sparse'}
         else:
             pat_of = {'Intro': 'rock', 'A': 'rock', 'B': 'rockB', "A'": 'sparse', 'Coda': 'sparse'}
+        # long form: the returning theme (A2) gets a different accompaniment, the interlude only held chords
+        if any(b['sec'] == 'A2' for b in self.bars):
+            alt = [k for k in PATS if k not in (pat_of['A'], 'hold', 'sparse', 'heart', 'blok3')]
+            pat_of['A2'] = rng.choice(alt) if alt else pat_of['A']
+            pat_of['Jembatan'] = 'hold'
         intro = p['intro']
         nb = len(self.bars)
         L = self.lead_track
         for i, b in enumerate(self.bars):
-            sec = b['sec']; b0 = i * M
+            sec = b['kind']; lab = b['sec']; b0 = i * M
             av = self.env(i) - (17 if lead != 'cello' else 22)
             harm = b['harm']
             last = i == nb - 1
@@ -578,8 +706,8 @@ class Composer:
                 voic = [bn - 12, bn, bn + 7] + [x for x in top if x > bn + 9][:4]
                 for j, n in enumerate(voic): s.add('Piano', b0 + j * .24, M * 2.2, n, av + 6 - j)
             elif not silent:
-                pat = pat_of[sec] if not (sec == 'Intro' and intro == 'ratapan') else 'ratapan'
-                if sec == 'B' and b['role'] == 'puncak' and rk == 4: pat = 'flow8'
+                pat = pat_of.get(lab, pat_of.get(sec, 'sparse')) if not (sec == 'Intro' and intro == 'ratapan') else 'ratapan'
+                if sec == 'B' and b['role'] in ('puncak', 'puncak1') and rk == 4: pat = 'flow8'
                 segs = [(h[0], (harm[k + 1][0] if k + 1 < len(harm) else M)) for k, h in enumerate(harm)]
                 for k, (bt, ch, br) in enumerate(harm):
                     st, en = segs[k]
@@ -599,7 +727,7 @@ class Composer:
                                        and all(abs(n - m) > 2 for m in mel_here))
                     if not upper: upper = [bn + 12]
                     P = PATS[pat] if len(harm) == 1 else [(st, 'b'), (st + .03, 0), (st + .03, 1), (st + .03, 2)]
-                    oct_ = (sec == 'B' and b['role'] in ('puncak', 'jatuh', 'naik')) or (sec == 'Intro' and intro == 'detak' and False)
+                    oct_ = (sec == 'B' and b['role'] in ('puncak', 'puncak1', 'jatuh', 'naik')) or (sec == 'Intro' and intro == 'detak' and False)
                     for (pos, v) in P:
                         if not (st <= pos < en): continue
                         if v == 'b': n, vv = bn, av + 5
@@ -617,10 +745,14 @@ class Composer:
                 if sec == 'Intro' and intro == 'string': use, sv = True, 40 + 6 * b['k']
                 elif sec == 'A' and b['k'] >= 8: use, sv = True, 40
                 elif sec == 'B': use, sv = True, 50 + (10 if b['role'] in ('puncak', 'jatuh') else 0)
+                elif lab == 'A2': use, sv = True, 44
+                elif sec == 'Jembatan': use, sv = True, 38
                 elif sec == "A'": use, sv = True, 42
                 elif sec == 'Coda': use, sv = True, 36
             else:   # cello lead: strings join at B, stay soft after
                 if sec == 'B': use, sv = True, 52 + (10 if b['role'] in ('puncak', 'jatuh') else 0)
+                elif lab == 'A2' and b['k'] >= 4: use, sv = True, 40
+                elif sec == 'Jembatan': use, sv = True, 38
                 elif sec == "A'" and b['k'] >= 4: use, sv = True, 42
                 elif sec == 'Coda' and not last: use, sv = True, 36
             if p['mood'] == 'Sedih': sv -= 3

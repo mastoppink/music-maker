@@ -12,6 +12,7 @@ const help = `Music Maker CLI
 Pemakaian:
   node cli/music-maker.js buat [opsi]     Buat lagu dan simpan sebagai WAV
   node cli/music-maker.js rangkaian [opsi] Sambung banyak lagu menjadi satu file panjang (sampai 3 jam)
+  node cli/music-maker.js kumpulan        Banyak lagu Sedih/Melankolis terpisah (Muse Sounds), misalnya 15 lagu x 5 menit
   node cli/music-maker.js master <file...> Atur volume file audio (misalnya hasil DAW) ke standar YouTube
   node cli/music-maker.js daftar          Tampilkan mood, genre, gaya, dan pola yang tersedia
   node cli/music-maker.js bantuan         Tampilkan teks ini
@@ -72,6 +73,13 @@ Opsi tambahan untuk "rangkaian" (semua opsi "buat" juga berlaku untuk setiap lag
   Lagu yang sudah jadi disimpan di folder <nama>-lagu; kalau proses terputus, jalankan perintah
   yang sama lagi dan lagu yang sudah ada dilewati.
 
+Opsi untuk "kumpulan" (mesin komposer + Muse Sounds; lihat README "Cara pakai di Mac sendiri"):
+  --jumlah <angka>                        Berapa lagu. Bawaan: 10
+  --durasi <detik>                        Perkiraan panjang tiap lagu. Bawaan: 300 (sekitar 5 menit)
+  --render musesounds                     Mainkan dengan Muse Sounds dan mastering (tanpa ini: partitur saja)
+  --wav                                   Simpan juga master WAV 24-bit 48 kHz (siap edit video)
+  --seed-awal <angka>                     Kumpulan lain. Bawaan: 1.  --rencana: tampilkan rencana saja
+
 Opsi untuk "master":
   --target <LUFS>                         Kekerasan tujuan. Bawaan: -14 (acuan YouTube)
   --bit <24|16>                           Kedalaman bit WAV hasil. Bawaan: 24
@@ -107,7 +115,7 @@ function parseArgs(argv) {
     }
     const [key, inline] = arg.slice(2).split(/=(.*)/s);
     // On/off switches need no value.
-    if (['midi', 'midi-saja', 'stem', 'mp3', 'tanpa-cek-mirip', 'reset-katalog', 'rencana', 'izinkan-suara-dasar', 'simpan-wav'].includes(key) && inline === undefined) { opts[key] = true; continue; }
+    if (['midi', 'midi-saja', 'stem', 'mp3', 'tanpa-cek-mirip', 'reset-katalog', 'rencana', 'izinkan-suara-dasar', 'simpan-wav', 'wav'].includes(key) && inline === undefined) { opts[key] = true; continue; }
     const value = inline ?? rest[++i];
     if (value === undefined) throw new Error(`Opsi --${key} butuh nilai.`);
     opts[key] = value;
@@ -703,8 +711,9 @@ function museSounds(command, opts) {
   const py = cands.find(p => spawnSync(p, ['-c', 'import music21, mido, numpy'], { cwd: root }).status === 0);
   if (!py) throw new Error('Komposer Muse Sounds belum terpasang. Jalankan sekali: bash pasang-mac.sh');
   const map = { mood: 'mood', seed: 'seed', keluar: 'keluar', menit: 'menit', jeda: 'jeda', katalog: 'katalog',
-    'batas-mirip': 'ambang', mscore: 'mscore', birama: 'birama', lead: 'lead', kunci: 'kunci', tempo: 'tempo', 'seed-awal': 'seed-awal' };
-  const flags = ['tanpa-cek-mirip', 'reset-katalog', 'rencana', 'izinkan-suara-dasar', 'simpan-wav'];
+    'batas-mirip': 'ambang', mscore: 'mscore', birama: 'birama', lead: 'lead', kunci: 'kunci', tempo: 'tempo', 'seed-awal': 'seed-awal',
+    durasi: 'durasi', jumlah: 'jumlah' };
+  const flags = ['tanpa-cek-mirip', 'reset-katalog', 'rencana', 'izinkan-suara-dasar', 'simpan-wav', 'wav'];
   const args = ['-m', 'komposer', command, '--render', 'musesounds'];
   for (const [k, v] of Object.entries(opts)) {
     if (k === 'render' || k === '_' || k === 'python') continue;
@@ -724,6 +733,7 @@ function museSounds(command, opts) {
     const { command, opts } = parseArgs(process.argv.slice(2));
     if (opts.bantuan || ['bantuan','help','-h','--help'].includes(command)) console.log(help);
     else if (['buat', 'rangkaian'].includes(command) && (opts.render ?? process.env.MUSIC_MAKER_RENDER) === 'musesounds') museSounds(command, opts);
+    else if (command === 'kumpulan') museSounds(command, opts);
     else if (command === 'buat') await make(opts);
     else if (command === 'rangkaian') await mix(opts);
     else if (command === 'master') masterFiles(opts);

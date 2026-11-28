@@ -97,7 +97,7 @@ def _last_json(text):
 
 def measure(path):
     ff = find_tool('ffmpeg')
-    r = subprocess.run([ff, '-nostats', '-i', path, '-af', 'ebur128=peak=true', '-f', 'null', '-'],
+    r = subprocess.run([ff, '-nostdin', '-nostats', '-i', path, '-af', 'ebur128=peak=true', '-f', 'null', '-'],
                        capture_output=True, text=True)
     t = r.stderr[r.stderr.rfind('Summary:'):]
     g = lambda k: float(re.search(rf'^\s+{k}:\s+(-?[\d.]+|-inf)', t, re.M).group(1).replace('-inf', '-99'))
@@ -107,25 +107,29 @@ def measure(path):
 COMP = 'acompressor=threshold=-26dB:ratio=2:attack=40:release=500:knee=6:makeup=1'
 
 
-def master(wav, mp3, target=-14.0, tp=-1.5, lra=12, extra_filter=None):
-    """gentle glue compression + 2-pass linear loudnorm + exact trim; MP3 320k 48 kHz"""
+def master(wav, mp3, target=-14.0, tp=-1.5, lra=12, extra_filter=None, wav_out=None):
+    """gentle glue compression + 2-pass linear loudnorm + exact trim; MP3 320k 48 kHz
+    (+ wav_out: the same master as 24-bit 48 kHz WAV, ready for video editing)"""
     ff = find_tool('ffmpeg')
     pre = COMP + (',' + extra_filter if extra_filter else '')
     raw = measure(wav)
-    r = subprocess.run([ff, '-nostats', '-i', wav, '-af', f'{pre},loudnorm=I={target}:TP={tp}:LRA={lra}:print_format=json',
+    r = subprocess.run([ff, '-nostdin', '-nostats', '-i', wav, '-af', f'{pre},loudnorm=I={target}:TP={tp}:LRA={lra}:print_format=json',
                         '-f', 'null', '-'], capture_output=True, text=True)
     j = _last_json(r.stderr)
     ln = (f"loudnorm=I={target}:TP={tp}:LRA={lra}:measured_I={j['input_i']}:measured_TP={j['input_tp']}:"
           f"measured_LRA={j['input_lra']}:measured_thresh={j['input_thresh']}:linear=true")
     tmpd = tempfile.mkdtemp()
     stage = os.path.join(tmpd, 'stage.wav')
-    subprocess.run([ff, '-y', '-loglevel', 'error', '-i', wav, '-af', f'{pre},{ln},aresample=48000', '-c:a', 'pcm_f32le', stage], check=True)
+    subprocess.run([ff, '-nostdin', '-y', '-loglevel', 'error', '-i', wav, '-af', f'{pre},{ln},aresample=48000', '-c:a', 'pcm_f32le', stage], check=True)
     m1 = measure(stage)
     trim = target - m1['I']
     trim = min(trim, -1.0 - m1['TP'])             # never push the true peak above -1 dBTP
     os.makedirs(os.path.dirname(os.path.abspath(mp3)) or '.', exist_ok=True)
-    subprocess.run([ff, '-y', '-loglevel', 'error', '-i', stage, '-af', f'volume={trim:.2f}dB', '-c:a', 'libmp3lame',
+    subprocess.run([ff, '-nostdin', '-y', '-loglevel', 'error', '-i', stage, '-af', f'volume={trim:.2f}dB', '-c:a', 'libmp3lame',
                     '-b:a', '320k', mp3], check=True)
+    if wav_out:
+        subprocess.run([ff, '-nostdin', '-y', '-loglevel', 'error', '-i', stage, '-af', f'volume={trim:.2f}dB', '-c:a', 'pcm_s24le',
+                        '-ar', '48000', wav_out], check=True)
     shutil.rmtree(tmpd, ignore_errors=True)
     fin = measure(mp3)
     return dict(raw=raw, final=fin)
@@ -135,7 +139,7 @@ def scan(path, boundaries=()):
     """gaps (>=1.5 s under -60 dBFS, not counting the end) and click candidates"""
     import numpy as np
     ff = find_tool('ffmpeg'); sr = 48000
-    raw = subprocess.run([ff, '-v', 'error', '-i', path, '-f', 'f32le', '-ac', '1', '-ar', str(sr), '-'],
+    raw = subprocess.run([ff, '-nostdin', '-v', 'error', '-i', path, '-f', 'f32le', '-ac', '1', '-ar', str(sr), '-'],
                          capture_output=True).stdout
     x = np.frombuffer(raw, dtype=np.float32).astype(np.float64)
     dur = len(x) / sr
